@@ -1,0 +1,2048 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <meta charset="utf-8" />
+  <title>Mapa Directorio SGGG — Municipios Edomex</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <nav class="navbar navbar-expand-lg" style="background-color: #ffffff;">
+    <div class="container">
+      <a class="navbar-brand" href="#">
+        <img src="https://lh3.googleusercontent.com/d/15DZbMCYDoQMblhjfIznTahYvBFZlGFnP"  
+            width="400" 
+            height="auto" 
+            class="d-inline-block align-text-top">
+      </a>
+    </div>
+  </nav>
+  <!-- Bootstrap -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- WKT → GeoJSON (Terraformer WKT) -->
+  <script src="https://unpkg.com/@terraformer/wkt@2.1.1/dist/terraformer-wkt-parser.umd.min.js"></script>
+
+  <style>
+    :root { --footer-h: 64px; }
+    body { padding-bottom: var(--footer-h); } /* para que el footer fijo no tape el contenido */
+    /* No pongas height fija aquí: #dataInfo la recibe por JS dinámicamente */
+    html { height: 100%; }
+    body { padding-bottom: var(--footer-h); } /* colchón para que el footer fijo no tape el contenido */
+
+    #map { height: 80vh; min-height: 500px; border-radius: 0.75rem; }
+    .leaflet-container { font: 14px/1.2 system-ui, -apple-system, Segoe UI, Roboto, Montserrat; }
+    .sidebar-card { position: sticky; top: 1rem; }
+    .municipio-highlight { font-weight: 600; }
+    .table-sm td, .table-sm th { padding: .35rem; }
+    /* Fuerza scroll propio del panel de datos */
+    #dataInfo { height: 40vh; overflow: auto; }
+    /* El contenedor puede scrollear en ambas direcciones */
+    /*tamacho automatico de datainfo*/
+    #dataInfo {
+      overflow: auto;          /* ya lo tienes por JS, aquí lo fijamos */
+    }
+
+    /* Asegura scroll horizontal del wrapper Bootstrap */
+    #dataInfo .table-responsive {
+      overflow-x: auto;        /* refuerzo explícito */
+    }
+
+    /* Clave: que la tabla no se “achate” a 100% sino al contenido real */
+    #dataInfo table {
+      width: max-content;      /* se ajusta al contenido y habilita overflow-x */
+      table-layout: auto;      /* evita compresión de columnas */
+    }
+
+    /* Clave: no partir texto -> así la tabla necesita más ancho */
+    #dataInfo th,
+    #dataInfo td {
+      white-space: nowrap;
+    }
+    /*modal css*/
+    .popup-avatar {
+      width: 120px;              /* un poco más grande que 56px */
+      height: 120px;
+      object-fit: cover;
+      border-radius: 12px;      /* esquinas suaves */
+      box-shadow: 0 2px 10px rgba(0,0,0,.15);
+    }
+    /* Modal más angosto y con menos padding */
+  /* ancho razonable y paddings más contenidos */
+.modal-wide           { max-width: 760px; }     /* puedes subir/bajar (720–820px) */
+.modal-wide .modal-header,
+.modal-wide .modal-footer { padding: .5rem .75rem; }
+.modal-wide .modal-body   { padding: .75rem; }
+
+/* foto del modal */
+.big-avatar  {
+  width: 180px; height: 180px;   /* un poco más grande */
+  object-fit: cover; border-radius: 14px;
+  box-shadow: 0 2px 10px rgba(0,0,0,.15);
+}
+
+/* nombre centrado debajo de la foto */
+.profile-name { font-weight: 600; font-size: 1.05rem; }
+
+/* grilla de detalle a dos columnas */
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;   /* 2 columnas */
+  gap: .5rem .75rem;
+}
+.detail-item .k { font-size: .8rem; color:#6c757d; }
+.detail-item .v { font-size: .92rem; word-break: break-word; }
+
+/* en pantallas chicas, 1 columna */
+@media (max-width: 768px){
+  .detail-grid { grid-template-columns: 1fr; }
+}
+.leaflet-interactive:focus {
+  outline: none !important;
+}
+/* GRID: ancho mínimo más grande para que quepa el texto */
+.party-grid-v2{
+  display:grid; gap:.6rem;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+}
+
+/* Cápsula (puede crecer en alto si necesita 2 líneas) */
+.party-chip-v2{
+  display:flex; align-items:center; gap:.6rem; width:100%;
+  padding:.55rem .75rem; border-radius:16px;              /* menos "pill" para 2 líneas */
+  background: var(--chip-bg, #ffffff);
+  color: var(--chip-fg, #111827);
+  border:1px solid rgba(0,0,0,.08);
+  box-shadow: 0 1px 1px rgba(0,0,0,.03);
+  transition: box-shadow .12s ease, transform .12s ease;
+}
+
+/* El texto ahora permite 2 líneas */
+.party-name{
+  font-size:.95rem; font-weight:600; line-height:1.2;
+  display:-webkit-box;
+  -webkit-line-clamp:2;            /* ← máx. 2 líneas */
+  -webkit-box-orient: vertical;
+  overflow:hidden;
+  white-space:normal;
+  word-break:break-word;
+}
+
+/* Avatar igual */
+.party-avatar{ width:22px; height:22px; border-radius:50%; overflow:hidden; flex:0 0 22px; background:#fff; display:grid; place-items:center; }
+.party-avatar img{ width:100%; height:100%; object-fit:contain; }
+/* Altura del mapa y wrapper relativo */
+#mapWrap { position: relative; }
+#map { height: 80vh; min-height: 500px; border-radius: 0.75rem; }
+
+/* Overlay flotante dentro del mapa */
+.map-overlay{
+  position: absolute;
+  top: 12px;           /* esquina superior izquierda */
+  left: 12px;
+  z-index: 1100;       /* por encima de controles de Leaflet */
+  width: 240px;        /* tamaño compacto */
+  max-height: 55vh;    /* si crece, añade scroll */
+  pointer-events: none;/* no bloquea pan/zoom del mapa */
+}
+.map-overlay .overlay-inner{
+  pointer-events: auto;/* pero SÍ permite scroll/click dentro de la tarjeta */
+  border-radius: 12px;
+  overflow: hidden;
+}
+.map-overlay .card-body{ padding: .5rem .5rem; }
+/* Cabecera fija de la overlay */
+.map-overlay .overlay-head{
+  background: #ffffff;
+  border-bottom: 1px solid rgba(0,0,0,.06);
+}
+
+/* El contenido colapsable */
+.map-overlay .overlay-content{
+  display: block;
+  max-height: 55vh;          /* scroll interno si crece */
+  overflow: auto;
+}
+
+/* Estado colapsado: solo se oculta el contenido, NO la cabecera */
+.map-overlay.is-collapsed .overlay-content{
+  display: none;
+}
+/*contenedor tarjeta oculto despues de abrir modal*/
+.modal-open #mapPartyLegend { 
+  display: none !important; 
+}
+/* Grid y chips (si no los tenías, pega estas reglas) */
+.party-grid-v2{
+  display:grid; gap:.5rem;
+  grid-template-columns: 1fr;  /* 1 por fila en la tarjetita */
+}
+.party-chip-v2{
+  display:flex; align-items:center; gap:.6rem; width:100%;
+  padding:.45rem .6rem; border-radius:12px;
+  background: var(--chip-bg, #ffffff);
+  color: var(--chip-fg, #111827);
+  border:1px solid rgba(0,0,0,.08);
+  box-shadow: 0 1px 1px rgba(0,0,0,.03);
+  transition: box-shadow .12s ease, transform .12s ease;
+}
+.party-chip-v2:hover{
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,.10);
+}
+.party-avatar{ width:22px; height:22px; border-radius:50%; overflow:hidden; flex:0 0 22px; background:#fff; display:grid; place-items:center; }
+.party-avatar img{ width:100%; height:100%; object-fit:contain; }
+.party-name{ font-size:.95rem; font-weight:600; line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.party-chip-v2[data-dark="1"]{ color:#fff; border-color: rgba(255,255,255,.28); }
+
+/* Responsive: más chica en móviles */
+@media (max-width: 576px){
+  .map-overlay{ width: 200px; top: 8px; left: 8px; }
+}
+/* Solo afecta a los botones outline del grupo de modo */
+#modeRadios .btn-group .btn-outline-primary {
+  --bs-btn-color: #9f2241;
+  --bs-btn-border-color: #9f2241;
+  --bs-btn-hover-bg: #9f2241;
+  --bs-btn-hover-border-color: #9f2241;
+  --bs-btn-active-bg: #9f2241;
+  --bs-btn-active-border-color: #9f2241;
+  --bs-btn-active-color: #fff;
+  --bs-btn-hover-color: #fff;
+  --bs-btn-focus-shadow-rgb: 159,34,65; /* para el anillo de foco */
+}
+/* Relleno */
+.btn-ati{
+  --bs-btn-color:#fff;
+  --bs-btn-bg:#9f2241;
+  --bs-btn-border-color:#9f2241;
+  --bs-btn-hover-bg:#851e3a;
+  --bs-btn-hover-border-color:#851e3a;
+  --bs-btn-active-bg:#6f1a31;
+  --bs-btn-active-border-color:#6f1a31;
+  --bs-btn-focus-shadow-rgb:159,34,65;
+  border-radius: .5rem; /* opcional */
+}
+  </style>
+</head>
+<body class="bg-light pb-5">
+  <div class="container-fluid py-3">
+    <div class="row g-3">
+      <!-- Columna de filtros -->
+      <div class="col-12 col-lg-3">
+        <div class="card shadow-sm sidebar-card">
+          <div class="card-body">
+            <h5 class="card-title mb-3">Filtros</h5>
+            <div class="mb-2" id="modeRadios">
+              <label class="form-label d-block">Modo de filtrado</label>
+              <div class="btn-group" role="group" aria-label="Modo de filtrado">
+                <input type="radio" class="btn-check" name="mode" id="modeGeneral" autocomplete="off" checked>
+                <label class="btn btn-outline-primary" for="modeGeneral">General</label>
+
+                <input type="radio" class="btn-check" name="mode" id="modeCoord" autocomplete="off">
+                <label class="btn btn-outline-primary" for="modeCoord">Por Coordinación</label>
+              </div>
+            </div>
+           <!-- BLOQUE COORDINACIÓN (oculto en modo General) -->
+            <div id="blockCoordinacion" class="mb-3 d-none">
+              <label class="form-label">Coordinación</label>
+              <select id="selCoordinacion" class="form-select" disabled>
+                <option value="" selected disabled>Selecciona una coordinación…</option>
+              </select>
+              <div class="form-text">Primero elige la Coordinación.</div>
+            </div>
+
+            <!-- BLOQUE HOJA (visible en ambos modos) -->
+            <div id="blockHoja" class="mb-3">
+              <label class="form-label">Capa</label>
+              <select id="selHoja" class="form-select">
+                <option value="" selected disabled>Selecciona una hoja…</option>
+              </select>
+              <div class="d-grid gap-2 mt-2">
+                <button id="btnReporte" class="btn btn-success" disabled>Generar reporte</button>
+              </div>
+            </div>
+
+            <!-- BLOQUE MUNICIPIO (visible en ambos modos) -->
+            <div id="blockMunicipio" class="mb-3">
+              <label class="form-label">Municipio</label>
+              <select id="selMunicipio" class="form-select" disabled>
+                <option value="" selected disabled>Selecciona un municipio…</option>
+              </select>
+             <!--<div class="form-text">Los polígonos se cargan de <code>municipios.json</code>.</div>--> 
+            </div>
+
+            <div class="d-grid gap-2">
+              <button id="btnAplicar" class="btn btn-ati">Aplicar filtros</button>
+              <button id="btnLimpiar" class="btn btn-outline-secondary">Limpiar</button>
+            </div>
+
+            <hr class="my-3">
+
+            <div>
+              <h6 class="mb-2">Municipio seleccionado</h6>
+              <div id="munInfo" class="small text-muted">—</div>
+            </div>
+
+            <hr class="my-3">
+
+            <div id="partyChartBox" class="mb-3 d-none">
+              <h6 class="mb-2">Distribución por Partido</h6>
+              <canvas id="partyChart" height="160"></canvas>
+              <div id="partyHint" class="form-text"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Columna del mapa -->
+      <div class="col-12 col-lg-9">
+        <div class="card shadow-sm">
+          <div class="card-body">
+            <!-- Wrapper relativo para posicionar la overlay dentro del mapa -->
+            <div id="mapWrap" class="position-relative">
+              <div id="map"></div>
+              <div id="mapPartyLegend" class="map-overlay">
+                <div class="overlay-inner card shadow-sm">
+                  <!-- Cabecera SIEMPRE visible -->
+                  <div class="overlay-head d-flex align-items-center justify-content-between px-2 py-1">
+                    <strong class="small mb-0">Partidos</strong>
+                    <button id="legendToggle" class="btn btn-sm btn-light py-0 px-2" aria-expanded="true" aria-controls="legendContent">–</button>
+                  </div>
+
+                  <!-- Contenido que sí se oculta/muestra -->
+                  <div id="legendContent" class="overlay-content">
+                    <div class="card-body p-2">
+                      <div class="party-grid-v2">
+                        <!-- tus chips aquí -->
+                        <div class="party-chip-v2" style="--chip-bg:#7A003F; --chip-fg:#fff;" data-dark="1" title="MORENA">
+                          <span class="party-avatar"><img src="https://lh3.googleusercontent.com/d/1yrFjze1kU4VscNi3NDO8L4f1edfCTuZR" alt="MORENA"></span>
+                          <span class="party-name">MORENA</span>
+                        </div>
+                        <div class="party-chip-v2" style="--chip-bg:#FF903F; --chip-fg:#fff;"      data-dark="1" title="MORENA">
+                          <span class="party-avatar"><img src="https://lh3.googleusercontent.com/d/1F5V9gebHZ6MDhsSjM8FiabvKIXNdhFKU" alt="PT"></span>
+                          <span class="party-name">PT</span>
+                        </div>
+                        <div class="party-chip-v2" style="--chip-bg:#008000; --chip-fg:#fff;"      data-dark="1" title="MORENA">
+                          <span class="party-avatar"><img src="https://lh3.googleusercontent.com/d/14yXBJtdIqzXuCW0X_aL8PsmhUVUQEXDf" alt="Partido Verde"></span>
+                          <span class="party-name">Partido Verde</span>
+                        </div>
+                        <div class="party-chip-v2" style="--chip-bg:#FF0D00; --chip-fg:#fff;" data-dark="1" title="MORENA">
+                          <span class="party-avatar"><img src="https://lh3.googleusercontent.com/d/1hxZWmoQjJfZ9AmsRA6zNBcsVDcZkjAzu" alt="PRI"></span>
+                          <span class="party-name">PRI</span>
+                        </div>
+                        <div class="party-chip-v2" style="--chip-bg:#0000FF; --chip-fg:#fff;" data-dark="1" title="MORENA">
+                          <span class="party-avatar"><img src="https://lh3.googleusercontent.com/d/1oUdbzYSMsKCf14mBRz0wAP-HaP_7kePw" alt="PAN"></span>
+                          <span class="party-name">PAN</span>
+                        </div>
+                        <div class="party-chip-v2" style="--chip-bg:#FFD700; --chip-fg:#fff;" data-dark="1" title="MORENA">
+                          <span class="party-avatar"><img src="https://lh3.googleusercontent.com/d/1WUwS0szGnQJBza9OeWv3ZmuHmzU21LJx" alt="PRD"></span>
+                          <span class="party-name">PRD</span>
+                        </div>
+                        <div class="party-chip-v2" style="--chip-bg:#FF5300; --chip-fg:#fff;" data-dark="1" title="MORENA">
+                          <span class="party-avatar"><img src="https://lh3.googleusercontent.com/d/1vyiJUCFAeLKLaKyTYZhLmYSm349HIPbM" alt="Movimiento Ciudadano"></span>
+                          <span class="party-name">Movimiento Ciudadano</span>
+                        </div>
+                        <div class="party-chip-v2" style="--chip-bg:#0BD1E4; --chip-fg:#fff;" data-dark="1" title="MORENA">
+                          <span class="party-avatar"><img src="https://lh3.googleusercontent.com/d/1KGJsAMNdEt_vMxyp5Rv_Ruc_tnT41oD4" alt="MORENA"></span>
+                          <span class="party-name">Nueva Alianza</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tu tarjeta de datos queda igual -->
+        <div class="card shadow-sm mt-3">
+          <div class="card-body p-2">
+            <h6 class="mb-2">Datos de la hoja</h6>
+            <div id="dataInfo" class="small">
+              Selecciona una hoja y un municipio.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bootstrap JS (opcional para algunos componentes) -->
+   <script src="https://unpkg.com/wellknown@0.5.0/wellknown.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+// ========== CONFIG ==========
+const ENDPOINT_SHEETS      = "/api/sheets";
+const ENDPOINT_DATA        = (tab) => `/api/data/${encodeURIComponent(tab)}`;
+const MUNICIPIOS_JSON_URL  = "/municipios.json"; // o "/api/municipios"
+
+// Claves reales de tus datos:
+const MUNICIPIO_KEY_JSON   = "municipio"; // en municipios.json
+const WKT_KEY_JSON         = "poligono";  // en municipios.json
+const MUNICIPIO_KEY_SHEET  = "Municipio"; // en tus hojas de Google Sheet
+
+// ========== Estado global ==========
+let map, baseLayer;
+let polygons = [];                        // L.GeoJSON (uno por municipio)
+let polygonByMunicipio = Object.create(null); // key normalizada -> L.GeoJSON
+let municipiosRaw = [];                   // arreglo original de municipios.json
+let municipiosMap = Object.create(null);  // key normalizada -> objeto municipio (JSON)
+let currentTab = null;
+let currentMunicipio = null;
+let dataCache = new Map();                // tab -> filas (objetos)
+let tabs = [];                            // lista de hojas
+let lastFilteredRows = []; // guardaremos el último subconjunto filtrado
+let partyChartInstance = null;
+let _suspendEvents = false;
+let filterMode = 'general'; // 'general' | 'coord'
+let municipioColorMap = Object.create(null); // key municipio norm -> '#rrggbb'
+let currentCoord = null;     // string o null
+
+
+// ========== Selectores UI (ajusta IDs si usas otros) ==========
+const selHoja = document.getElementById('selHoja');
+const selMunicipio = document.getElementById('selMunicipio');
+
+const btnAplicar = document.getElementById('btnAplicar');
+const btnLimpiar = document.getElementById('btnLimpiar');
+const dataInfo = document.getElementById('dataInfo');
+const munInfo  = document.getElementById('munInfo');
+
+const modeGeneral = document.getElementById('modeGeneral');
+const modeCoord   = document.getElementById('modeCoord');
+
+const blockCoordinacion = document.getElementById('blockCoordinacion');
+const blockHoja = document.getElementById('blockHoja');
+const blockMunicipio = document.getElementById('blockMunicipio');
+
+const coordIndex = new Map();
+// Columnas a ocultar SIEMPRE (en cualquier hoja)
+const HIDDEN_COLS_GLOBAL = new Set(['id'].map(s => normalize(s)));
+
+// Columnas a ocultar POR HOJA (clave = nombre de la hoja normalizado)
+const HIDDEN_COLS_PER_TAB = {
+  [normalize('Presidentes Municipales')]: new Set(['colores'].map(s => normalize(s))),
+};
+
+// Helper: ¿esta columna debe ocultarse?
+function isHiddenColumn(tabName, colName) {
+  const ncol = normalize(colName);
+  if (HIDDEN_COLS_GLOBAL.has(ncol)) return true;
+  const ntab = normalize(tabName || '');
+  const per = HIDDEN_COLS_PER_TAB[ntab];
+  return per ? per.has(ncol) : false;
+}
+// ==================== INIT ====================
+document.addEventListener('DOMContentLoaded', async () => {
+  initMap();
+  attachUI();
+
+  await loadSheets();
+  await loadMunicipios();
+
+  // <-- AQUI: construye el índice y rellena el select
+  await buildCoordIndex();
+  populateCoordinacionesFromIndex(); // (si estás en modo coord, quedará habilitado)
+
+  await buildMunicipioColorMapFromPresidentes(); // lee “Presidentes” y Colores
+  refreshBasePolygonStyles();                     // pinta el mapa con esos colores
+
+  updateButtonState(); // <<--- AQUI
+  updateUIForMode(); // inicia en modo General (radio ya marcado)
+  dimBasemap(true);
+  initLegendBg(); // ← activa la elección de fondo de la leyenda
+});
+
+// ==================== MAPA ====================
+function initMap() {
+  map = L.map('map', { zoomControl: false });
+  baseLayer = L.tileLayer(
+    'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    { maxZoom: 19, attribution: '&copy; OpenStreetMap' }
+  ).addTo(map);
+  map.setView([19.3, -99.65], 8); // Edomex
+}
+// Atenuar / restaurar el mapa base (no afecta polígonos)
+function dimBasemap(on = true) {
+  if (!baseLayer || !baseLayer.setOpacity) return;
+  baseLayer.setOpacity(on ? 0.15 : 1);
+}
+
+// Opacidades estándar
+const FILL_OPACITY_DEFAULT = 0.80;  // normal
+const FILL_OPACITY_DIMMED  = 0.18;  // atenuado (no seleccionado)
+const FILL_OPACITY_FOCUS   = 0.72;  // enfocado/seleccionado
+
+function baseFillColorFor(feature){
+  const nom = feature?.properties?.municipio || '';
+  const key = normalize(nom);
+  return municipioColorMap[key] || '#ee82ee'; // ← tu color fallback si falta en el sheet
+}
+
+function polyDefaultStyle(feature) {
+  return {
+    color: '#ffffff',               // borde neutro
+    weight: 1,
+    opacity: 0.9,
+    fillColor: baseFillColorFor(feature),
+    fillOpacity: FILL_OPACITY_DEFAULT
+  };
+}
+
+function polyHoverStyle(feature) {
+  const base = polyDefaultStyle(feature);
+  return { ...base, weight: 2, fillOpacity: Math.min(base.fillOpacity + 0.10, 0.80) };
+}
+
+function polyHighlightStyle(feature) {
+  const base = polyDefaultStyle(feature);
+  return { ...base, color:'#ffffff', weight: 3, fillOpacity: FILL_OPACITY_FOCUS };
+}
+
+function polyDimStyle(feature) {
+  const base = polyDefaultStyle(feature);
+  return { ...base, color:'#ffffff', opacity:0.7, fillOpacity: FILL_OPACITY_DIMMED };
+}
+
+// Reaplicar estilos base a todo (cuando limpias filtros, etc.)
+// Si tienes coordIndex (modo coordinación), esto ayuda a saber quién se atenúa:
+// Devuelve true si el municipio (keyNorm) pertenece a la coordinación activa
+function belongsToActiveCoord(keyNorm) {
+  if (filterMode !== 'coord') return true;           // en modo general hay hover normal
+  if (!currentCoord) return false;                   // sin coordinación activa
+  const coordKey = normalize(currentCoord);          // 🔑 normaliza la coordinación
+  const entry = coordIndex.get(coordKey);
+  if (!entry || !entry.municipios) return false;
+  return entry.municipios.has(keyNorm);              // 🔑 compara con key normalizada
+}
+
+// Atenuar si NO pertenece a la coordinación activa (usa misma lógica)
+function isDimmedByCoord(keyNorm) {
+  if (filterMode !== 'coord') return false;
+  if (!currentCoord) return false;
+  const coordKey = normalize(currentCoord);
+  const entry = coordIndex.get(coordKey);
+  if (!entry || !entry.municipios) return false;
+  return !entry.municipios.has(keyNorm);
+}
+function setLayerBaseStyle(lyr, styleObj) {
+  lyr._baseStyleCurrent = styleObj;
+  lyr.setStyle(styleObj);
+}
+
+// Decide qué estilo va para un municipio (clave normalizada)
+function styleForKey(keyNorm, feature) {
+  if (currentMunicipio && normalize(currentMunicipio) === keyNorm) {
+    return polyHighlightStyle(feature); // foco por municipio
+  }
+  if (isDimmedByCoord(keyNorm)) {
+    return polyDimStyle(feature);       // atenuado por coordinación
+  }
+  return polyDefaultStyle(feature);     // normal
+}
+
+// Reaplica estilos base/contexto a TODO
+function refreshBasePolygonStyles() {
+  polygons.forEach(g => {
+    g.eachLayer && g.eachLayer(l => {
+      const name = l?.feature?.properties?.municipio || '';
+      const key  = normalize(name);
+      const st   = styleForKey(key, l.feature); // default / dim / highlight
+      setLayerBaseStyle(l, st);                 // 👈 guardar + aplicar
+    });
+  });
+}
+
+function focusMunicipio(nombre) {
+  currentMunicipio = nombre || null;
+  refreshBasePolygonStyles();
+  // centra si existe
+  const lyr = polygonByMunicipio[ normalize(nombre) ];
+  if (lyr?.getBounds) map.fitBounds(lyr.getBounds(), { padding: [28, 28] });
+  if (lyr?.bringToFront) lyr.bringToFront();
+}
+
+// ==================== CARGAS ====================
+async function loadSheets() {
+  const r = await fetch(ENDPOINT_SHEETS);
+  const j = await r.json();
+  tabs = j?.tabs || [];
+  selHoja.innerHTML = '<option value="" disabled selected>Selecciona categoria…</option>';
+  for (const t of tabs) {
+    const opt = document.createElement('option');
+    opt.value = t; opt.textContent = t;
+    selHoja.appendChild(opt);
+  }
+    // === NUEVO: fuerza que quede seleccionada la opción placeholder (índice 0)
+  selHoja.selectedIndex = 0;
+
+  // Mantén el estado del botón coherente (y evita “stale” inicial)
+  updateButtonState();
+}
+
+async function loadMunicipios() {
+  const r = await fetch(MUNICIPIOS_JSON_URL);
+  municipiosRaw = await r.json();
+
+  // Index por nombre normalizado y llena combo
+  selMunicipio.innerHTML = '<option value="" disabled selected>Selecciona un municipio…</option>';
+  const nombres = [];
+  municipiosRaw.forEach(m => {
+    const nombre = m[MUNICIPIO_KEY_JSON];
+    if (!nombre) return;
+    const key = normalize(nombre);
+    municipiosMap[key] = m;
+    nombres.push(nombre);
+  });
+  nombres.sort((a,b)=>a.localeCompare(b,'es',{sensitivity:'base'}));
+  for (const n of nombres) {
+    const opt = document.createElement('option');
+    opt.value = n; opt.textContent = n;
+    selMunicipio.appendChild(opt);
+  }
+
+  // === NUEVO: habilita y asegura placeholder activo
+  selMunicipio.disabled = false;
+  selMunicipio.removeAttribute('disabled'); // extra seguro
+  selMunicipio.selectedIndex = 0;           // placeholder (índice 0)
+
+  // Dibuja todos los polígonos una sola vez
+  drawAllPolygons();
+
+  // === NUEVO: microtask para que el estado del botón no quede “stale”
+  setTimeout(updateButtonState, 0);
+}
+  
+function drawAllPolygons() {
+  // limpia anteriores
+  polygons.forEach(p => map.removeLayer(p));
+  polygons = [];
+  polygonByMunicipio = Object.create(null);
+
+  const layers = [];
+  for (const m of municipiosRaw) {
+    const nombre = m[MUNICIPIO_KEY_JSON];
+    const wkt    = m[WKT_KEY_JSON];
+    if (!nombre || !wkt) continue;
+
+    let geo = wellknown.parse(wkt);
+    if (!geo) continue;
+    if (shouldSwapXY(geo)) geo = swapXYGeom(geo);
+
+    const feature = {
+      type: "Feature",
+      properties: {
+        municipio: nombre,
+        cve_entidad: m.cve_entidad ?? null,
+        cve_municipio: m.cve_municipio ?? null
+      },
+      geometry: geo
+    };
+
+    const layer = L.geoJSON(feature, {
+      // ⚠️ Leaflet llamará a esta función pasándole el feature
+      style: polyDefaultStyle,
+      onEachFeature: (feat, lyr) => {
+        const nom = feat?.properties?.municipio || '—';
+        const key = normalize(nom);
+
+        lyr.bindTooltip(nom, { sticky: true });
+
+        lyr.on('click', async () => {
+          const nom = feat?.properties?.municipio || '—';
+
+          // 🛡️ Modo coord: si Hoja no está elegida, NO modifiques los selects
+          if (filterMode === 'coord' && (selHoja.disabled || selHoja.selectedIndex <= 0)) {
+            // Solo foco visual (sin tocar selects)
+            focusMunicipio?.(nom);   // o resaltarMunicipio(nom) si ya usas esa
+            return;
+          }
+
+          // --- flujo normal ---
+          selMunicipio.value = nom;
+          if (selMunicipio.selectedIndex < 0) {
+            for (let i=0;i<selMunicipio.options.length;i++){
+              if (selMunicipio.options[i].textContent.trim() === nom.trim()){
+                selMunicipio.selectedIndex = i; break;
+              }
+            }
+          }
+          selMunicipio.dispatchEvent(new Event('change', { bubbles:true }));
+
+          if (selHoja.selectedIndex > 0) {
+            await applyFilters();
+          } else {
+            resaltarMunicipio(nom);
+          }
+        });
+
+        // HOVER: en coordinación solo reaccionan los que pertenecen a _coordTargets
+        lyr.on('mouseover', () => {
+          const isCoordMode = (filterMode === 'coord' && currentCoord);
+          const belongs = isCoordMode
+            ? (window._coordTargets && window._coordTargets.has(key))  // 🔒 bloquea si no pertenece
+            : true; // en modo general sí hay hover
+
+          if (!belongs) return;
+
+          const opt = lyr.options || {};
+          // guarda estilo previo exacto
+          lyr._prevStyle = {
+            color: opt.color,
+            weight: opt.weight,
+            opacity: opt.opacity,
+            fillColor: opt.fillColor,
+            fillOpacity: opt.fillOpacity
+          };
+          // sube borde/opacidad SIN cambiar fillColor
+          lyr.setStyle({
+            color: opt.color,
+            weight: Math.min((opt.weight || 1) + 1, 5),
+            opacity: opt.opacity,
+            fillColor: opt.fillColor,
+            fillOpacity: Math.min((opt.fillOpacity ?? FILL_OPACITY_DEFAULT) + 0.10, 0.95)
+          });
+        });
+
+        lyr.on('mouseout', () => {
+          if (lyr._prevStyle) {
+            lyr.setStyle(lyr._prevStyle);
+            lyr._prevStyle = null;
+          } else {
+            if (currentMunicipio && normalize(currentMunicipio) === key) {
+              lyr.setStyle(polyHighlightStyle(lyr.feature));
+            } else {
+              lyr.setStyle(polyDefaultStyle(lyr.feature));
+            }
+          }
+        });
+      }
+    }).addTo(map);
+
+    polygons.push(layer);
+    polygonByMunicipio[ normalize(nombre) ] = layer;
+    layers.push(layer);
+  }
+
+  // Ajusta vista
+  if (layers.length) {
+    const group = L.featureGroup(layers);
+    map.fitBounds(group.getBounds(), { padding: [20, 20] });
+  }
+}
+
+// ==================== UI & FILTROS ====================
+// URL del Web App (deploy de Apps Script: .../exec)
+const GAS_REPORT_URL = 'https://script.google.com/macros/s/AKfycby3eTIm3pwV5mbWh4n_qK-ucbogaLfeR_M4L-bNyQlbuwp9p8tNvMuDddhKtdj4r3Sx/exec';
+
+document.getElementById('btnReporte').addEventListener('click', () => {
+  const hoja = selHoja?.value;
+  if (!hoja) return;
+
+  const params = new URLSearchParams({ hoja });
+
+  // Si quieres que respete el municipio seleccionado (opcional):
+  if (selMunicipio?.value) params.set('municipio', selMunicipio.value);
+
+  window.open(`${GAS_REPORT_URL}?${params.toString()}`, '_blank');
+});
+
+
+
+function normalizeColName(s) {
+  return String(s || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+}
+function getPhotoColumn(rows){
+  if(!rows?.length) return null;
+  const keys = Object.keys(rows[0]);
+  if (keys.includes('Foto')) return 'Foto';
+  for(const k of keys) if (normalizeColName(k).includes('foto') || normalizeColName(k).includes('imagen')) return k;
+  return null;
+}
+function getNameColumn(rows){
+  if(!rows?.length) return null;
+  const keys = Object.keys(rows[0]);
+  if (keys.includes('Nombre')) return 'Nombre';
+  for(const k of keys) if (normalizeColName(k).includes('nombre')) return k;
+  return null;
+}
+function isPresidentesTab(tab){
+  const n = normalizeColName(tab);
+  return n.includes('presidente') || n.includes('presidentes') || n.includes('presidentesmunicipales');
+}
+
+// Drive: obtener URL directa
+function extractDriveId(u){
+  if(!u) return null;
+  let m = u.match(/\/file\/d\/([a-zA-Z0-9_-]{10,})/);    if(m) return m[1];
+  m = u.match(/[?&]id=([a-zA-Z0-9_-]{10,})/);            if(m) return m[1];
+  m = u.match(/\/uc\?.*?[?&]id=([a-zA-Z0-9_-]{10,})/);   if(m) return m[1];
+  m = u.match(/lh3\.googleusercontent\.com\/d\/([a-zA-Z0-9_-]{10,})/); if(m) return m[1];
+  return null;
+}
+function toDirectImageUrl(u){
+  if(!u) return '';
+  if(/lh3\.googleusercontent\.com\/d\//.test(u)) return u;
+  const id = extractDriveId(u);
+  return id ? `https://lh3.googleusercontent.com/d/${id}=s800` : u;
+}
+// Encuentra la columna "Coordinación" con tolerancia
+function getCoordColumn(rows) {
+  if (!rows?.length) return null;
+  const keys = Object.keys(rows[0]);
+
+  // Coincidencias exactas más típicas
+  if (keys.includes('Coordinación')) return 'Coordinación';
+  if (keys.includes('Coordinacion')) return 'Coordinacion';
+
+  // Búsqueda flexible (COORDINACIÓN / coordinación / coordinacion / etc.)
+  for (const k of keys) {
+    const nk = normalizeColName(k); // ej. "coordinacion"
+    if (nk.includes('coordinacion')) return k;
+  }
+  return null;
+}
+// Detecta columna de "Partido" con variantes (Partido, Partido Político/Politico, etc.)
+function getPartyColumn(rows) {
+  if (!rows || !rows.length) return null;
+  const keys = Object.keys(rows[0]);
+
+  // Prioriza nombres comunes exactos
+  const preferred = ["Partido Político", "Partido Politico", "Partido"];
+  for (const p of preferred) if (keys.includes(p)) return p;
+
+  // Búsqueda flexible
+  for (const k of keys) {
+    const nk = normalizeColName(k);   // ej: "partidopolitico"
+    if (nk.includes('partido')) return k;
+  }
+  return null;
+}
+/*colores mapa hoja presidente*/
+function getColorColumn(rows){
+  if(!rows?.length) return null;
+  const keys = Object.keys(rows[0]);
+  if (keys.includes('Colores')) return 'Colores';
+  if (keys.includes('Color')) return 'Color';
+  for (const k of keys) if (normalizeColName(k).includes('color')) return k;
+  return null;
+}
+function isHexColor(s){
+  return /^#([0-9a-f]{6}|[0-9a-f]{3})$/i.test(String(s||'').trim());
+}
+function colorFromParty(p){
+  if(!p) return null;
+  const dict = window.PARTY_COLORS || {};   // <- evita ReferenceError
+  const k = normalizeColName(p);
+  for (const key in dict) {
+    if (k === key || k.includes(key)) return dict[key];
+  }
+  return null;
+}
+// Al activar coordinación:
+function colorByCoordFromIndex(coordName) {
+  // 🔑 normaliza el nombre de coordinación para consultar el índice
+  const coordKey = normalize(coordName || currentCoord || '');
+  currentCoord = coordName || currentCoord || null;
+
+  const entry = coordIndex.get(coordKey);
+  // set accesible para hover (bloquear municipios fuera)
+  window._coordTargets = entry ? entry.municipios : null;
+
+  if (!entry) {
+    refreshBasePolygonStyles(); // pinta todo normal si no hay entrada
+    return;
+  }
+
+  const targets = entry.municipios; // Set de keys normalizadas
+  const bounds = [];
+
+  // Recorre TODOS los municipios ya normalizados
+  Object.keys(polygonByMunicipio).forEach(key => {
+    const group = polygonByMunicipio[key];
+    if (!group) return;
+
+    const isTarget = targets.has(key);
+
+    // Aplica estilo a CADA subcapa
+    group.eachLayer(l => {
+      // Si ya elegiste Hoja: targets con color del sheet (polyDefaultStyle), otros atenuados
+      // Si aún NO elegiste Hoja: puedes dejarlo igual, o poner un uniforme en targets (descomenta la línea de fillColor si quieres rosa uniforme previo a Hoja)
+      const st = isTarget
+        ? polyDefaultStyle(l.feature)                   // ← color del sheet
+        // ? { ...polyDefaultStyle(l.feature), fillColor:'#ee82ee' } // ← opción: rosa uniforme mientras no hay Hoja
+        : polyDimStyle(l.feature);                      // ← atenuado
+
+      l.setStyle(st); // si usas setLayerBaseStyle(l, st), mejor para hover, pero no es obligatorio si ya usas _prevStyle en onEachFeature
+    });
+
+    if (isTarget) {
+      try { bounds.push(group.getBounds()); } catch(_) {}
+    }
+  });
+
+  if (bounds.length) {
+    let union = L.latLngBounds(bounds[0]);
+    for (let i = 1; i < bounds.length; i++) union.extend(bounds[i]);
+    map.fitBounds(union, { padding: [24,24] });
+  }
+}
+// Muestra/oculta el contenedor de la gráfica
+function setPartyBoxVisible(on) {
+  const box = document.getElementById('partyChartBox');
+  if (!box) return;
+  if (on) box.classList.remove('d-none');
+  else box.classList.add('d-none');
+}
+
+// Dibuja/actualiza la gráfica de partidos a partir de TODAS las filas de la hoja
+// Llama: renderPartyChart(rows) donde 'rows' = j.rows de /api/data/:tab (completo, sin filtrar)
+function renderPartyChart(rows) {
+  const box = document.getElementById('partyChartBox');
+  const canvas = document.getElementById('partyChart');
+  const hint = document.getElementById('partyHint');
+
+  // Oculta si no hay columna de partido
+  const col = getPartyColumn(rows);
+  if (!col || !rows?.length || !canvas) {
+    if (box) box.classList.add('d-none');
+    if (hint) hint.textContent = '';
+    if (partyChartInstance) { partyChartInstance.destroy(); partyChartInstance = null; }
+    return;
+  }
+
+  // Conteo por partido
+  const counts = new Map();
+  rows.forEach(r => {
+    const raw = r[col];
+    if (!raw) return;
+    const key = partyKeyFrom(raw);
+    if (!key) return;
+    counts.set(key, (counts.get(key) || 0) + 1);
+  });
+
+  const labels = [];
+  const data = [];
+  const bg = [];
+  let total = 0;
+
+  for (const [key, count] of counts.entries()) {
+    labels.push(key.toUpperCase());
+    data.push(count);
+    bg.push(partyColor(key)); // 🎨 color por partido
+    total += count;
+  }
+
+  // Crear/actualizar Chart.js
+  const ctx = canvas.getContext('2d');
+  if (partyChartInstance) partyChartInstance.destroy();
+  partyChartInstance = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{
+        data,
+        backgroundColor: bg,
+        borderWidth: 0
+      }]
+    },
+    options: {
+      cutout: '58%',
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const count = ctx.parsed;
+              const pct = total ? (count / total * 100) : 0;
+              return ` ${ctx.label}: ${count} (${pct.toFixed(1)}%)`;
+            }
+          }
+        }
+      }
+    }
+  });
+
+  // Mostrar contenedor + hint
+  if (box) box.classList.remove('d-none');
+  if (hint) hint.textContent = `Total: ${total}`;
+}
+async function buildCoordIndex() {
+  coordIndex.clear();
+  if (!Array.isArray(tabs) || tabs.length === 0) {
+    console.warn('[coordIndex] No hay tabs aún.');
+    return;
+  }
+
+  for (const tab of tabs) {
+    try {
+      const rows = await getRowsForTab(tab);
+      if (!rows.length) continue;
+
+      const colC = getCoordColumn(rows);
+      if (!colC) {
+        console.warn(`[coordIndex] La hoja "${tab}" NO tiene columna "Coordinación". Claves:`, Object.keys(rows[0]));
+        continue;
+      }
+
+      for (const r of rows) {
+        const coord = String(r[colC] ?? '').trim();
+        const muni  = String(r[MUNICIPIO_KEY_SHEET] ?? '').trim();
+        if (!coord || !muni) continue;         // ignora vacíos
+
+        const muniKey = normalize(muni);
+        if (!coordIndex.has(coord)) {
+          coordIndex.set(coord, { tabs:new Set(), municipios:new Set(), municipiosByTab:new Map() });
+        }
+        const entry = coordIndex.get(coord);
+        entry.tabs.add(tab);
+        entry.municipios.add(muniKey);
+
+        let s = entry.municipiosByTab.get(tab);
+        if (!s) { s = new Set(); entry.municipiosByTab.set(tab, s); }
+        s.add(muniKey);
+      }
+    } catch (err) {
+      console.error(`[coordIndex] Falló lectura de "${tab}":`, err);
+    }
+  }
+
+  console.debug('[coordIndex] Coordinaciones detectadas:', [...coordIndex.keys()]);
+}
+
+// rows: todas las filas de la hoja que uses para construir el índice (cualquiera que tenga la columna "Coordinación")
+function buildCoordIndexFromRows(rows) {
+  coordIndex = new Map();
+  const colC = getCoordColumn(rows); // "Coordinación" o como se llame en tus hojas
+
+  rows.forEach(r => {
+    const coordKey = normalize(r[colC] || '');
+    const muniKey  = normalize(r[MUNICIPIO_KEY_SHEET] || '');
+    if (!coordKey || !muniKey) return;
+
+    let entry = coordIndex.get(coordKey);
+    if (!entry) {
+      entry = { municipios: new Set() };
+      coordIndex.set(coordKey, entry);
+    }
+    entry.municipios.add(muniKey);  // 🔑 guarda municipio NORMALIZADO
+  });
+}
+
+function hasEnabledValue(sel) {
+  return !!(sel && !sel.disabled && sel.value && String(sel.value).trim() !== '');
+}
+function updateButtonState() {
+  if (document.getElementById('modeCoord')?.checked)   filterMode = 'coord';
+  if (document.getElementById('modeGeneral')?.checked) filterMode = 'general';
+  // Habilita el botón cuando haya hoja seleccionada (en tu updateButtonState)
+  if (btnReporte) btnReporte.disabled = !(selHoja && selHoja.value);
+
+  const hasTab   = hasEnabledValue(selHoja);
+  const hasMun   = hasEnabledValue(selMunicipio);
+  const hasCoord = hasEnabledValue(selCoordinacion);
+
+  if (filterMode === 'general') {
+    btnAplicar.disabled = !(hasTab && hasMun);
+  } else {
+    btnAplicar.disabled = !(hasCoord && hasTab); // <- Municipio opcional
+  }
+}
+function attachUI() {
+  selHoja.addEventListener('change', async () => {
+    if (_suspendEvents) return;
+
+    currentTab = selHoja.value || null;
+
+    if (filterMode === 'coord') {
+      // Municipios = intersección (Coordinación ∩ Hoja)
+      updateMunicipiosForCurrentCoordAndTab(selCoordinacion.value, currentTab);
+
+      // ✅ Ahora sí, habilita Municipio
+      selMunicipio.disabled = false;
+
+      // Mantén el patrón de color por coordinación
+      if (selCoordinacion.selectedIndex > 0) colorByCoordFromIndex(selCoordinacion.value);
+    }
+
+    updateButtonState();
+    setTimeout(updateButtonState, 0);
+
+    // (opcional) resetear municipio y limpiar UI al cambiar de hoja
+    if (selMunicipio) {
+      selMunicipio.selectedIndex = 0;
+      currentMunicipio = null;
+      munInfo && (munInfo.textContent = "—");
+      dataInfo && (dataInfo.innerHTML = "Selecciona un municipio.");
+      map?.closePopup && map.closePopup();
+      polygons.forEach(p => refreshBasePolygonStyles());
+    }
+
+    // 👉 Cargar TODA la hoja y dibujar gráfica global
+    if (currentTab) {
+      let rows = dataCache.get(currentTab);
+      if (!rows) {
+        const r = await fetch(ENDPOINT_DATA(currentTab));
+        const j = await r.json();
+        rows = j?.rows || [];
+        dataCache.set(currentTab, rows);
+      }
+      if (typeof renderPartyChart === 'function') {
+        renderPartyChart(rows);
+      }
+      // o si usas la genérica:
+      // renderSummaryChart?.(rows);
+    } else {
+      // sin hoja -> oculta gráfica de partidos si la tienes
+      if (typeof setPartyBoxVisible === 'function') setPartyBoxVisible(false);
+    }
+
+    if (_suspendEvents) return;
+      currentTab = selHoja.value || null;
+      updateLegend?.();
+      updateButtonState();
+
+      if (filterMode === 'coord') {
+        // Refina municipios a (Coordinación ∩ Hoja)
+        updateMunicipiosForCurrentCoordAndTab(selCoordinacion.value, currentTab);
+
+        // (opcional) pinta gráfica global de la hoja
+        if (currentTab && typeof renderPartyChart === 'function') {
+          const rows = await getRowsForTab(currentTab);
+          renderPartyChart(rows);
+        }
+      }
+    });
+  selCoordinacion.addEventListener('change', () => {
+    if (_suspendEvents || filterMode !== 'coord') return;
+
+    currentCoord = selCoordinacion.value || null;
+
+    // Rellena listas filtradas por coordinación
+    populateDependentsForCoord(currentCoord);
+
+    // ✅ Solo Hoja habilitada
+    selHoja.disabled = false;
+
+    // 🚫 Municipio bloqueado hasta elegir Hoja
+    selMunicipio.selectedIndex = 0;
+    selMunicipio.disabled = true;
+    currentMunicipio = null;
+
+    // Colorear patrón por coordinación (mantiene colores oficiales)
+    colorByCoordFromIndex(currentCoord);
+
+    updateButtonState();
+  });
+  selMunicipio.addEventListener('change', () => {
+    if (_suspendEvents) return;
+
+    // En modo coord, si Hoja aún no está elegida, ignorar y revertir
+    if (filterMode === 'coord' && (selHoja.disabled || selHoja.selectedIndex <= 0)) {
+      selMunicipio.selectedIndex = 0;
+      currentMunicipio = null;
+      updateButtonState();
+      return;
+    }
+
+    currentMunicipio = selMunicipio.value || null;
+    updateButtonState();
+  });
+  selMunicipio.addEventListener('input', updateButtonState); // defensa extra
+
+  modeGeneral.addEventListener('change', () => {
+    if (!modeGeneral.checked) return;
+    filterMode = 'general';
+    updateUIForMode();
+  });
+async function onSwitchToGeneralMode() {
+  filterMode = 'general';
+  _suspendEvents = true;
+
+  fullResetState();
+
+  // UI: ocultar coordinación, habilitar selects globales
+  blockCoordinacion.classList.add('d-none');
+
+  populateTabsAll?.();
+  populateMunicipiosAll?.();
+
+  selCoordinacion.selectedIndex = 0;
+  selCoordinacion.disabled = true;
+
+  selHoja.disabled = false;
+  selMunicipio.disabled = false;
+
+  clearChartsAndInfo();
+  if (dataInfo) dataInfo.textContent = 'Selecciona una hoja y un municipio.';
+
+  resetMapVisual();
+
+  _suspendEvents = false;
+  updateButtonState();
+}
+
+// listener del radio
+  modeGeneral.addEventListener('change', () => {
+    if (!modeGeneral.checked) return;
+    onSwitchToGeneralMode();
+  });
+  async function onSwitchToCoordMode() {
+    filterMode = 'coord';
+    _suspendEvents = true;
+
+    fullResetState();
+
+    // UI: mostrar bloque de coordinación, y deshabilitar dependientes
+    blockCoordinacion.classList.remove('d-none');
+    blockHoja.classList.remove('d-none');
+    blockMunicipio.classList.remove('d-none');
+
+    selCoordinacion.selectedIndex = 0;
+    selCoordinacion.disabled = false;
+
+    selHoja.selectedIndex = 0;
+    selHoja.disabled = true;
+
+    selMunicipio.selectedIndex = 0;
+    selMunicipio.disabled = true;
+
+    // repoblar coordinaciones
+    await buildCoordIndex?.();
+    populateCoordinacionesFromIndex?.();
+
+    clearChartsAndInfo();
+    if (dataInfo) dataInfo.textContent = 'Selecciona una coordinación.';
+
+    resetMapVisual();
+
+    _suspendEvents = false;
+    updateButtonState();
+  }
+
+  // listener del radio
+  modeCoord.addEventListener('change', () => {
+    if (!modeCoord.checked) return;
+    onSwitchToCoordMode();
+  });
+  btnAplicar.addEventListener('click', () => {
+    // fuerza sincronización desde el DOM antes de aplicar
+    currentTab = selHoja.value || null;
+    currentMunicipio = selMunicipio.value || null;
+    applyFilters();
+  });
+
+  btnLimpiar.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    resetAll();
+    refreshBasePolygonStyles();
+  });
+  /*MODAL ABRIR MODAL Y PINTAR*/
+  document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.btn-ver-mas');
+  if (!btn) return;
+
+  const hoja = btn.getAttribute('data-hoja');
+  const municipio = btn.getAttribute('data-municipio');
+
+  // Trae toda la hoja (cache) y filtra por municipio
+  const rows = await getRowsForTab(hoja);
+  const fil  = rows.filter(r => normalize(r[MUNICIPIO_KEY_SHEET]) === normalize(municipio));
+    openInfoModal(hoja, municipio, fil);
+  });
+}
+/*FUNCION PARA ABRIR EL MODAL*/
+function openInfoModal(hoja, municipio, rows){
+  const titleEl = document.getElementById('infoModalTitle');
+  const bodyEl  = document.getElementById('infoModalBody');
+
+  titleEl.textContent = `${municipio} — ${hoja}`;
+
+  if (!rows?.length) {
+    bodyEl.innerHTML = `<div class="text-muted">Sin información disponible.</div>`;
+  } else if (isPresidentesTab(hoja)) {
+    // ===== Hoja: Presidentes (con foto) =====
+    const photoCol = getPhotoColumn(rows); // "Foto"
+    const nameCol  = getNameColumn(rows);  // "Nombre"
+    const r = rows[0];
+
+    const name = String(r?.[nameCol] ?? '').trim() || '—';
+
+    // Usa tu helper; si no tienes, puedes usar normalizeUrl(...) como fallback
+    const img  = toDirectImageUrl ? toDirectImageUrl(String(r?.[photoCol] ?? '').trim())
+                                  : String(r?.[photoCol] ?? '').trim();
+
+    // 1) Orden natural del sheet
+    const allCols = Object.keys(r);
+
+    // 2) Filtrar columnas ocultas + quitar "Foto" de la grilla
+    const visibleCols = allCols.filter(k => {
+      if (normalize(k) === 'foto') return false;                 // no mostrar en grilla
+      return !isHiddenColumn(hoja, k);                           // respeta HIDDEN_COLS_*
+    });
+
+    // 3) Render grilla respetando orden
+    const gridHtml = visibleCols.map(k => `
+      <div class="detail-item">
+        <div class="k">${escapeHtml(k)}</div>
+        <div class="v">${autoFormat(r[k], k)}</div>
+      </div>
+    `).join('');
+
+    bodyEl.innerHTML = `
+      <div class="row g-3">
+        <div class="col-md-4 text-center">
+          ${img ? `<img class="big-avatar mb-2" src="${escapeHtml(img)}"
+                         alt="${escapeHtml(name)}"
+                         onerror="this.style.display='none'">` : ''}
+          <div class="profile-name mb-1">${escapeHtml(name)}</div>
+          <div class="small text-muted mb-2">${escapeHtml(municipio)}</div>
+        </div>
+        <div class="col-md-8">
+          <div class="detail-grid">
+            ${gridHtml}
+          </div>
+        </div>
+      </div>
+    `;
+
+  } else {
+    // ===== Otras hojas (sin foto) =====
+    let html = '';
+    rows.forEach((r, idx) => {
+      const all = Object.keys(r);
+      const visible = all.filter(k => !isHiddenColumn(hoja, k)); // oculta Id (global) u otras por hoja
+
+      const block = visible.map(k => `
+        <div class="detail-item">
+          <div class="k">${escapeHtml(k)}</div>
+          <div class="v">${autoFormat(r[k], k)}</div>
+        </div>
+      `).join('');
+
+      html += `
+        ${rows.length>1?`<div class="small text-muted mb-1">Registro ${idx+1}</div>`:''}
+        <div class="detail-grid mb-2">${block}</div>
+        ${idx < rows.length-1 ? '<hr class="my-2"/>' : ''}
+      `;
+    });
+    bodyEl.innerHTML = html;
+  }
+
+  const modal = new bootstrap.Modal(document.getElementById('infoModal'));
+  modal.show();
+}
+//Al cambiar “Hoja” en modo Coordinación, refina “Municipio” a la intersección
+function updateMunicipiosForCurrentCoordAndTab(coordName, tabName) {
+  const entry = coordIndex.get(coordName);
+  selMunicipio.innerHTML = '<option value="" selected disabled>Selecciona un municipio…</option>';
+  if (!entry || !tabName) { selMunicipio.disabled = true; return; }
+
+  // Intersección: municipios de la coordinación QUE APARECEN en esa hoja
+  const setForTab = entry.municipiosByTab.get(tabName);
+  if (!setForTab || setForTab.size === 0) { selMunicipio.disabled = true; return; }
+
+  const list = Array.from(setForTab)
+    .map(k => canonicalMunicipioName(k))
+    .sort((a,b)=>a.localeCompare(b,'es',{sensitivity:'base'}));
+
+  for (const n of list) {
+    const opt = document.createElement('option'); opt.value = n; opt.textContent = n;
+    selMunicipio.appendChild(opt);
+  }
+  selMunicipio.disabled = list.length === 0;
+}
+
+//filtro boton option general o coordinacion 
+function populateTabsAll() {
+  selHoja.innerHTML = '<option value="" selected disabled>Selecciona una hoja…</option>';
+  (tabs || []).forEach(t => {
+    const opt = document.createElement('option');
+    opt.value = t; opt.textContent = t;
+    selHoja.appendChild(opt);
+  });
+  selHoja.disabled = false;
+}
+
+function populateMunicipiosAll() {
+  selMunicipio.innerHTML = '<option value="" selected disabled>Selecciona un municipio…</option>';
+  const nombres = (municipiosRaw || [])
+    .map(m => m[MUNICIPIO_KEY_JSON])
+    .filter(Boolean)
+    .sort((a,b)=>a.localeCompare(b,'es',{sensitivity:'base'}));
+  for (const n of nombres) {
+    const opt = document.createElement('option');
+    opt.value = n; opt.textContent = n;
+    selMunicipio.appendChild(opt);
+  }
+  selMunicipio.disabled = false;
+}
+//filtro por coordinacion
+// Usa el índice global ya construido: coordIndex
+function canonicalMunicipioName(name) {
+  const key = normalize(name);
+  return (municipiosMap?.[key]?.[MUNICIPIO_KEY_JSON]) || name;
+}
+
+function populateDependentsForCoord(coordName) {
+  const entry = coordIndex.get(coordName);
+  // Limpia siempre
+  selHoja.innerHTML = '<option value="" selected disabled>Selecciona una hoja…</option>';
+  selMunicipio.innerHTML = '<option value="" selected disabled>Selecciona un municipio…</option>';
+
+  if (!entry) {
+    selHoja.disabled = true;
+    selMunicipio.disabled = true;
+    return;
+  }
+
+  // Hojas/catálogos que contienen ESA coordinación
+  const tabsList = Array.from(entry.tabs).sort((a,b)=>a.localeCompare(b,'es',{sensitivity:'base'}));
+  for (const t of tabsList) {
+    const opt = document.createElement('option'); opt.value = t; opt.textContent = t;
+    selHoja.appendChild(opt);
+  }
+  selHoja.disabled = tabsList.length === 0;
+
+  // Municipios de ESA coordinación (nombre “oficial” si existe)
+  const muniList = Array.from(entry.municipios)
+    .map(k => canonicalMunicipioName(k))
+    .sort((a,b)=>a.localeCompare(b,'es',{sensitivity:'base'}));
+  for (const n of muniList) {
+    const opt = document.createElement('option'); opt.value = n; opt.textContent = n;
+    selMunicipio.appendChild(opt);
+  }
+  selMunicipio.disabled = muniList.length === 0;
+}
+//carga de select option coordinacion
+function populateCoordinacionesFromIndex() {
+  selCoordinacion.innerHTML = '<option value="" selected disabled>Selecciona una coordinación…</option>';
+
+  const coords = [...coordIndex.keys()]
+    .filter(v => v && String(v).trim().length > 0)
+    .sort((a,b)=>a.localeCompare(b,'es',{sensitivity:'base'}));
+
+  for (const v of coords) {
+    const opt = document.createElement('option');
+    opt.value = v;              // <-- el value ahora queda lleno
+    opt.textContent = v;
+    selCoordinacion.appendChild(opt);
+  }
+
+  selCoordinacion.disabled = coords.length === 0;
+  console.debug('[populateCoordinaciones] total:', coords.length);
+}
+
+function updateUIForMode() {
+  _suspendEvents = true;
+  if (filterMode === 'coord') {
+  // Mostrar bloque de Coordinación y preparar combos
+  blockCoordinacion.classList.remove('d-none');
+  blockHoja.classList.remove('d-none');
+  blockMunicipio.classList.remove('d-none');
+
+  // Habilita Coordinación; deshabilita dependientes hasta que elijan
+  selCoordinacion.disabled = false;
+  selHoja.selectedIndex = 0;    selHoja.disabled = true;
+  selMunicipio.selectedIndex = 0; selMunicipio.disabled = true;
+
+  // (re)llena el select de Coordinación desde tu índice
+  populateCoordinacionesFromIndex();
+
+  polygons.forEach(p => refreshBasePolygonStyles());
+  map?.closePopup && map.closePopup();
+
+  updateButtonState(); // <<<< clave
+}
+  if (filterMode === 'general') {
+    // Mostrar Hoja/Municipio; ocultar Coordinación
+    blockCoordinacion.classList.add('d-none');
+    blockHoja.classList.remove('d-none');
+    blockMunicipio.classList.remove('d-none');
+
+    // Coordinación en neutro
+    selCoordinacion.selectedIndex = 0;
+    selCoordinacion.disabled = true;
+
+    // Hoja/Municipio habilitados y poblados globalmente
+    populateTabsAll();
+    populateMunicipiosAll();
+
+    // Limpia estilos de mapa
+    polygons.forEach(p => refreshBasePolygonStyles());
+    map?.closePopup && map.closePopup();
+
+  } else { // 'coord'
+    // Mostrar bloque de Coordinación
+    blockCoordinacion.classList.remove('d-none');
+    blockHoja.classList.remove('d-none');
+    blockMunicipio.classList.remove('d-none');
+
+    // Deshabilitar Hoja/Municipio hasta elegir una coordinación (los filtraremos en el paso 2)
+    selHoja.selectedIndex = 0; selHoja.disabled = true;
+    selMunicipio.selectedIndex = 0; selMunicipio.disabled = true;
+
+    // Activar Coordinación (en el paso 2 la llenamos desde el índice)
+    selCoordinacion.disabled = false;
+
+    // Limpia estilos de mapa
+    polygons.forEach(p => refreshBasePolygonStyles());
+    map?.closePopup && map.closePopup();
+  }
+
+  _suspendEvents = false;
+  updateButtonState();
+}
+
+async function getRowsForTab(tab) {
+  if (!tab) return [];
+  // usa tu cache actual (dataCache) si ya lo tienes
+  let rows = dataCache.get(tab);
+  if (!rows) {
+    const r = await fetch(ENDPOINT_DATA(tab));
+    const j = await r.json();
+    rows = j?.rows || [];
+    dataCache.set(tab, rows);
+  }
+  return rows;
+}
+async function applyFilters() {
+  // Sincroniza estado desde los selects
+  currentTab        = selHoja.value || currentTab || null;
+  currentMunicipio  = selMunicipio.value || currentMunicipio || null;
+  currentCoord      = selCoordinacion.value || currentCoord || null;
+
+  if (!currentTab) return;
+
+  // Trae toda la hoja (cache)
+  let rows = dataCache.get(currentTab);
+  if (!rows) {
+    const r = await fetch(ENDPOINT_DATA(currentTab));
+    const j = await r.json();
+    rows = j?.rows || [];
+    dataCache.set(currentTab, rows);
+  }
+
+  // --- RUTA MODO COORDINACIÓN ---
+  if (filterMode === 'coord' && currentCoord) {
+    // 1) Pintar mapa según coordinación (targets normal, otros atenuados)
+    colorByCoordFromIndex(currentCoord);
+
+    // 2) Si NO hay municipio -> tabla por coordinación
+    if (!currentMunicipio) {
+      // filtra filas de la hoja por la coordinación seleccionada
+      const colC = getCoordColumn(rows); // tu helper que detecta "Coordinación"
+      const filCoord = rows.filter(r => normalize(r[colC]) === normalize(currentCoord));
+
+      renderDataTable(filCoord, currentTab);
+      lastFilteredRows = filCoord;
+
+      // Info y gráfica global con TODA la hoja
+      munInfo && (munInfo.innerHTML = `<b>Coordinación:</b> ${escapeHtml(currentCoord)} <span class="text-muted">• Hoja: ${escapeHtml(currentTab)} • Registros: ${rows.length}</span>`);
+      renderPartyChart?.(rows);
+      return;
+    }
+
+    // 3) Si SÍ hay municipio -> flujo similar al general, pero manteniendo el contexto de coordinación
+    resaltarMunicipio(currentMunicipio);
+
+    const filMun = rows.filter(r => normalize(r[MUNICIPIO_KEY_SHEET]) === normalize(currentMunicipio));
+    renderDataTable(filMun, currentTab);
+    lastFilteredRows = filMun;
+
+    const lyr = polygonByMunicipio[ normalize(currentMunicipio) ];
+    if (lyr) {
+      const content = buildPopupHTML(currentMunicipio, currentTab, filMun);
+      lyr.bindPopup(content, { maxWidth: 420 }).openPopup();
+    }
+
+    renderPartyChart?.(rows); // gráfica = toda la hoja
+    return;
+  }
+
+  // --- RUTA MODO GENERAL ---
+  if (!currentMunicipio) {
+    // En general necesitas municipio para aplicar
+    dataInfo && (dataInfo.textContent = "Selecciona un municipio.");
+    return;
+  }
+
+  // 1) Resalta polígono y centra
+  resaltarMunicipio(currentMunicipio);
+
+  // 2) Subconjunto solo para tabla/popup (por municipio)
+  const fil = rows.filter(r => normalize(r[MUNICIPIO_KEY_SHEET]) === normalize(currentMunicipio));
+  renderDataTable(fil, currentTab);
+  lastFilteredRows = fil;
+
+  // 3) Popup
+  const lyr = polygonByMunicipio[ normalize(currentMunicipio) ];
+  if (lyr) {
+    const content = buildPopupHTML(currentMunicipio, currentTab, fil);
+    lyr.bindPopup(content, { maxWidth: 420 }).openPopup();
+  }
+
+  // 4) Gráfica = toda la hoja
+  renderPartyChart?.(rows);
+}
+/*Construir el mapa de colores desde Presidentes*/
+async function buildMunicipioColorMapFromPresidentes() {
+  municipioColorMap = Object.create(null);
+
+  // 1) encuentra la hoja de presidentes
+  const presidentsTab = (tabs || []).find(t => isPresidentesTab(t));
+  if (!presidentsTab) {
+    console.warn('[colors] No encontré una hoja de Presidentes');
+    return;
+  }
+
+  // 2) carga filas y detecta columnas
+  const rows = await getRowsForTab(presidentsTab);
+  if (!rows.length) return;
+  const colM = MUNICIPIO_KEY_SHEET;
+  const colC = getColorColumn(rows);     // "Colores" (preferida)
+  const colP = getPartyColumn(rows);     // "Partido..." (fallback)
+
+  // 3) llena el diccionario municipio -> color
+  rows.forEach(r => {
+    const muni = String(r[colM] ?? '').trim();
+    if (!muni) return;
+    const key = normalize(muni);
+
+    let hex = null;
+    if (colC) {
+      const raw = String(r[colC] ?? '').trim();
+      if (isHexColor(raw)) hex = raw;
+    }
+    if (!hex && colP) {
+      hex = colorFromParty(r[colP]);
+    }
+    municipioColorMap[key] = hex || '#93c5fd'; // default si no hay color
+  });
+
+  console.debug('[colors] municipios con color:', Object.keys(municipioColorMap).length);
+}
+
+function resetAll() {
+  _suspendEvents = true;  // <<<<<< bloquea listeners mientras reseteas
+  window._coordTargets = null;
+  currentCoord = null;
+  refreshBasePolygonStyles();  // repinta con colores del Sheet
+  // 1) Selects a placeholder
+  if (selHoja && selHoja.options.length) {
+    selHoja.selectedIndex = 0;
+    currentTab = null;
+  }
+  if (selMunicipio && selMunicipio.options.length) {
+    selMunicipio.selectedIndex = 0;
+    currentMunicipio = null;
+  }
+
+  // 2) Cerrar cualquier popup abierto del mapa
+  map?.closePopup && map.closePopup();
+
+  // 3) Cerrar popups/unbind y restaurar estilos en TODAS las subcapas
+  polygons.forEach(p => {
+    p.closePopup && p.closePopup();
+    if (p.eachLayer) {
+      p.eachLayer(l => {
+        l.closePopup && l.closePopup();
+        l.unbindPopup && l.unbindPopup();      // <- opcional pero útil para limpiar contenido
+        l.setStyle && l.setStyle(polyDefaultStyle());
+      });
+    } else {
+      p.setStyle && refreshBasePolygonStyles();
+    }
+  });
+
+  // 4) Limpiar UI lateral
+  if (dataInfo) {
+    // elimina nodos para evitar HTML residual
+    dataInfo.replaceChildren();
+    dataInfo.textContent = "Selecciona una hoja y un municipio.";
+  }
+  if (munInfo) munInfo.textContent = "—";
+
+  // Si tienes buscador de municipio
+  const search = document.getElementById('searchMunicipio');
+  if (search) search.value = '';
+
+  // 5) Limpiar gráficas
+  if (typeof miniChartInstance !== 'undefined' && miniChartInstance) {
+    miniChartInstance.destroy(); miniChartInstance = null;
+  }
+  if (typeof partyChartInstance !== 'undefined' && partyChartInstance) {
+    partyChartInstance.destroy(); partyChartInstance = null;
+  }
+  typeof setPartyBoxVisible === 'function' && setPartyBoxVisible(false);
+  const chartHint = document.getElementById('partyHint') || document.getElementById('chartHint');
+  if (chartHint) chartHint.textContent = '';
+
+  // 6) Recentrar mapa a todos los polígonos
+  try {
+    const group = L.featureGroup(polygons);
+    map.fitBounds(group.getBounds(), { padding: [20, 20] });
+  } catch (_) {
+    map.setView([19.3, -99.65], 8);
+  }
+
+  _suspendEvents = false;  // <<<<<< re-activa listeners
+
+  // 7) Re-sincroniza estado de botones/leyenda
+  updateButtonState?.();
+  if (typeof updateLegend === 'function') {
+    const sw = document.getElementById('legendSwatch');
+    const tx = document.getElementById('legendText');
+    if (sw) sw.style.background = 'transparent';
+    if (tx) tx.textContent = '—';
+  }
+}
+function fullResetState() {
+  currentTab = null;
+  currentMunicipio = null;
+  currentCoord = null;
+  lastFilteredRows = [];
+}
+
+function resetMapVisual() {
+  // cierra popups y repone colores oficiales (sin atenuar)
+  map?.closePopup && map.closePopup();
+  refreshBasePolygonStyles?.();
+
+  // encuadra todo el estado
+  try {
+    let union = null;
+    polygons.forEach(g => {
+      if (!g?.getBounds) return;
+      const b = g.getBounds();
+      union = union ? union.extend(b) : L.latLngBounds(b);
+    });
+    if (union) map.fitBounds(union, { padding: [20, 20] });
+  } catch(_) {
+    map.setView([19.3, -99.65], 8);
+  }
+}
+
+function clearChartsAndInfo() {
+  // borra gráfica de partidos si la usas
+  if (partyChartInstance) { partyChartInstance.destroy(); partyChartInstance = null; }
+  setPartyBoxVisible?.(false);
+
+  // textos
+  if (munInfo)  munInfo.textContent = '—';
+  if (dataInfo) dataInfo.textContent = 'Selecciona una opción.';
+}
+
+// Usa esta en lugar de tu resaltarMunicipio anterior
+function resaltarMunicipio(nombre) {
+  focusMunicipio(nombre);
+  munInfo.innerHTML = `<span class="municipio-highlight">${escapeHtml(nombre)}</span>`;
+}
+
+function renderDataTable(rows, tabName) {
+  if (!rows || rows.length === 0) {
+    dataInfo.innerHTML = `<span class="text-warning">No hay registros para <b>${escapeHtml(currentMunicipio || '—')}</b> en la hoja <b>${escapeHtml(tabName)}</b>.</span>`;
+    return;
+  }
+  // 🔴 columnas visibles
+  const allCols = Object.keys(rows[0]);
+  const cols = allCols.filter(c => !isHiddenColumn(tabName, c));
+
+  let html = `<div class="mb-2 small text-muted">Hoja: <b>${escapeHtml(tabName)}</b> — Registros: <b>${rows.length}</b></div>`;
+  html += `<div class="table-responsive"><table class="table table-sm table-striped align-middle mb-0"><thead><tr>`;
+  for (const c of cols) html += `<th>${escapeHtml(c)}</th>`;
+  html += `</tr></thead><tbody>`;
+
+  for (const r of rows) {
+    html += `<tr>`;
+    for (const c of cols) html += `<td>${autoFormat(r[c], c)}</td>`;
+    html += `</tr>`;
+  }
+  html += `</tbody></table></div>`;
+  dataInfo.innerHTML = html;
+}
+
+function buildPopupHTML(municipio, hoja, rows) {
+  if (!rows || rows.length === 0) {
+    return `<div><b>${escapeHtml(municipio)}</b><br/><small>Hoja: ${escapeHtml(hoja)}</small><hr class="my-2"><em>Sin datos.</em></div>`;
+  }
+
+  // === Popup especial para Presidentes Municipales ===
+  if (isPresidentesTab(hoja)) {
+    const photoCol = getPhotoColumn(rows);
+    const nameCol  = getNameColumn(rows);
+    const r = rows[0] || {};
+    const name = String(r[nameCol] ?? '').trim() || '—';
+    const raw  = String(r[photoCol] ?? '').trim();
+    const img  = toDirectImageUrl(raw);
+
+    const extra = rows.length > 1
+      ? `<div class="small text-muted mt-2">(+ ${rows.length - 1} más)</div>`
+      : '';
+
+    return `
+      <div class="text-center">
+        ${img ? `<img class="popup-avatar mb-2" src="${escapeHtml(img)}" alt="${escapeHtml(name)}" onerror="this.style.display='none'">` : ''}
+        <div class="fw-semibold mb-2">${escapeHtml(name)}</div>
+        <button class="btn btn-sm btn-primary btn-ver-mas"
+                data-hoja="${escapeHtml(hoja)}"
+                data-municipio="${escapeHtml(municipio)}">
+          Ver más
+        </button>
+        ${extra}
+      </div>
+    `;
+  }
+
+  // === Fallback para otras hojas (oculta columnas no visibles) ===
+  const first = rows[0];
+
+  // Filtra columnas ocultas ANTES del slice
+  const visibleKeys = Object.keys(first).filter(k => !isHiddenColumn(hoja, k));
+  const keys = visibleKeys.slice(0, 8);
+
+  // Si no quedó ninguna visible, muestra mensaje corto
+  if (keys.length === 0) {
+    return `<div><b>${escapeHtml(municipio)}</b><br/><small>Hoja: ${escapeHtml(hoja)}</small><hr class="my-2"><em>Sin campos visibles.</em></div>`;
+  }
+
+  let list = `<ul class="mb-0">`;
+  for (const k of keys) {
+    list += `<li><b>${escapeHtml(k)}:</b> ${autoFormat(first[k], k)}</li>`;
+  }
+  list += `</ul>`;
+
+  return `<div><b>${escapeHtml(municipio)}</b><br/><small>Hoja: ${escapeHtml(hoja)}</small><hr class="my-2">${list}${rows.length>1?`<div class="mt-2 small text-muted">(+ ${rows.length-1} registros más)</div>`:""}</div>`;
+}
+
+// ==================== Utils ====================
+function extractDriveId(u) {
+  const m1 = u.match(/drive\.google\.com\/file\/d\/([^/]+)/i);
+  if (m1) return m1[1];
+  const m2 = u.match(/[?&]id=([^&]+)/i);
+  if (m2) return m2[1];
+  return null;
+}
+
+function normalizeUrl(raw) {
+  let s = String(raw || '').trim();
+  if (!s) return '';
+  if (/^\/\//.test(s)) s = 'https:' + s;
+  else if (/^www\./i.test(s)) s = 'https://' + s;
+  return s;
+}
+
+function toDirectImageSource(raw) {
+  const u = normalizeUrl(raw);
+  if (!u) return { img:'', href:'', fallbacks:[] };
+
+  // Google Photos: no embebible
+  if (/photos\.app\.goo\.gl/i.test(u)) {
+    return { img:'', href:u, fallbacks:[] };
+  }
+
+  // Google Drive
+  const id = extractDriveId(u);
+  if (id) {
+    const primary   = `https://lh3.googleusercontent.com/d/${id}`;
+    const secondary = `https://drive.google.com/uc?export=view&id=${id}`;
+    return { img: primary, href: `https://drive.google.com/file/d/${id}/view`, fallbacks: [secondary] };
+  }
+
+  // URLs con extensión de imagen
+  if (/\.(png|jpg|jpeg|gif|webp|svg)(\?.*)?$/i.test(u)) {
+    return { img: u, href: u, fallbacks: [] };
+  }
+
+  // Otras URLs (fb, sitios) → no embeber
+  return { img:'', href:u, fallbacks:[] };
+}
+
+function buildImgTagWithFallback(src, alt, fallback) {
+  const safeAlt = escapeHtml(alt || '');
+  const safeSrc = escapeHtml(src || '');
+  const safeFb  = escapeHtml(fallback || '');
+  return `
+    <img src="${safeSrc}" alt="${safeAlt}"
+         style="max-width:140px;max-height:100px;border-radius:8px"
+         onerror="if(!this.dataset.fbTried && '${safeFb}'){ this.dataset.fbTried=1; this.src='${safeFb}'; } else { this.style.display='none'; }">`;
+}
+function normalize(s) {
+  return String(s || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase().trim();
+}
+function escapeHtml(x) {
+  return String(x ?? "").replace(/[&<>"']/g, m => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[m]));
+}
+function autoFormat(v, colName) {
+  if (v == null) return '';
+  let s = String(v).trim();
+  if (!s) return '';
+
+  // 🔴 Columna Foto: intentar embeber (Drive → lh3 / uc; Photos → link)
+  if (colName && /foto/i.test(colName)) {
+    const { img, href, fallbacks } = toDirectImageSource(s);
+    if (img) {
+      return buildImgTagWithFallback(img, 'Foto', fallbacks[0]);
+    }
+    // No embebible (p.ej. Google Photos) → link
+    if (href) {
+      return `<a href="${escapeHtml(href)}" target="_blank" rel="noopener">Abrir foto</a>`;
+    }
+    return '';
+  }
+
+  // Si parece URL → link “Abrir”
+  if (/^(https?:)?\/\/|^www\./i.test(s)) {
+    const u = normalizeUrl(s);
+    return `<a href="${escapeHtml(u)}" target="_blank" rel="noopener">Abrir</a>`;
+  }
+
+  // Si tiene extensión de imagen explícita → <img>
+  if (/\.(png|jpg|jpeg|gif|webp)$/i.test(s)) {
+    const src = normalizeUrl(s);
+    return `<img src="${escapeHtml(src)}" alt="" style="max-width:80px;max-height:50px;border-radius:8px">`;
+  }
+
+  return escapeHtml(s);
+}
+
+// Detectar si hay que invertir ejes (por si el WKT viniera lat,lon)
+function firstCoordFromGeo(geometry) {
+  const g = geometry, t = g?.type;
+  if (!g) return null;
+  if (t === "Point") return g.coordinates;
+  if (t === "LineString") return g.coordinates[0];
+  if (t === "Polygon") return g.coordinates[0][0];
+  if (t === "MultiPolygon") return g.coordinates[0][0][0];
+  if (t === "MultiLineString") return g.coordinates[0][0];
+  if (t === "MultiPoint") return g.coordinates[0];
+  return null;
+}
+function shouldSwapXY(geometry) {
+  const c = firstCoordFromGeo(geometry);
+  if (!c) return false;
+  const [x, y] = c; // GeoJSON espera [lon,lat]
+  return Math.abs(x) <= 90 && Math.abs(y) > 90; // x parece lat, y parece lon
+}
+function swapXYGeom(geometry) {
+  const deepSwap = (coords) => {
+    if (typeof coords[0] === "number") return [coords[1], coords[0]];
+    return coords.map(deepSwap);
+  };
+  return { type: geometry.type, coordinates: deepSwap(geometry.coordinates) };
+}
+      // Ajusta padding inferior según alto real del footer fijo (por si cambia en responsive)
+      function ajustarPaddingFooter() {
+        const nav = document.querySelector('.navbar.fixed-bottom');
+        const h = nav ? Math.ceil(nav.getBoundingClientRect().height) : 0;
+        document.documentElement.style.setProperty('--footer-h', (h || 64) + 'px');
+      }
+      window.addEventListener('load', ajustarPaddingFooter);
+      window.addEventListener('resize', ajustarPaddingFooter);
+  </script>
+  
+  <script>
+  function ajustarPaddingFooter() {
+    const nav = document.querySelector('.navbar.fixed-bottom');
+    const h = nav ? Math.ceil(nav.getBoundingClientRect().height) : 0;
+    document.documentElement.style.setProperty('--footer-h', (h || 64) + 'px');
+  }
+
+  function resizeDataInfo() {
+    const di = document.getElementById('dataInfo');
+    if (!di) return;
+    const footer = document.querySelector('.navbar.fixed-bottom');
+    const footerH = footer ? Math.ceil(footer.getBoundingClientRect().height) : 0;
+    const top = di.getBoundingClientRect().top;         // posición actual del panel
+    const gap = 16;                                      // respiración inferior (px)
+    const avail = Math.max(160, window.innerHeight - footerH - top - gap);
+    di.style.maxHeight = avail + 'px';
+    di.style.overflow = 'auto';
+  }
+// Colores oficiales por partido (keys normalizadas)
+const PARTY_COLORS = {
+  morena: '#7A003F',
+  pan: '#0000FF',
+  pri: '#FF0D00',
+  prd: '#FFD700',
+  pt: '#FF903F',
+  pvem: '#008000',
+  mc: '#FF5300',
+  naem: '#0BD1E4',
+  independiente: '#6B7280'
+};
+
+// Alias comunes → clave
+function partyKeyFrom(raw) {
+  const n = normalize(raw);
+  if (!n) return '';
+  // alias frecuentes
+  if (n.includes('movimiento ciudadano')) return 'mc';
+  if (n.includes('verde')) return 'pvem';
+  if (n.includes('nueva alianza')) return 'naem';
+  // si ya es clave directa
+  if (PARTY_COLORS[n]) return n;
+  return n; // fallback (se pintará con gris)
+}
+
+function partyColor(key) {
+  return PARTY_COLORS[key] || '#9CA3AF';
+}
+  // Llama en los momentos clave
+  window.addEventListener('load',  () => { ajustarPaddingFooter(); resizeDataInfo(); setTimeout(resizeDataInfo, 0); });
+  window.addEventListener('resize', () => { ajustarPaddingFooter(); resizeDataInfo(); });
+
+  // Si usas Leaflet, ayuda a reacomodar azulejos al cambiar tamaños
+  window.addEventListener('resize', () => { try { map && map.invalidateSize(); } catch(_){} });
+</script>
+<script>
+// Toggle mostrar/ocultar solo del contenido
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('#legendToggle');
+  if (!btn) return;
+
+  const wrap = document.getElementById('mapPartyLegend');
+  wrap.classList.toggle('is-collapsed');
+
+  const expanded = !wrap.classList.contains('is-collapsed');
+  btn.setAttribute('aria-expanded', String(expanded));
+  btn.textContent = expanded ? '–' : '+';
+});
+</script>
+<!-- Modal detalle -->
+<div class="modal fade" id="infoModal" tabindex="-1" aria-hidden="true">
+  <div id="infoModalDialog"
+       class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable modal-wide">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 id="infoModalTitle" class="modal-title">Detalle</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div id="infoModalBody" class="modal-body"><!-- contenido por JS --></div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+    <nav class="navbar fixed-bottom" style="background-color: #9f2241; color: #ffffff;">
+      <div class="container justify-content-center">
+        <span class="navbar-text small" style="color: #ffffff;">
+          Información oficial: Coordinación de Politícas Transversales y de Gobernabilidad ©ATI 2025
+        </span>
+      </div>
+    </nav>
+    <!-- Bootstrap JS al final del body -->
+</body>
+</html>
