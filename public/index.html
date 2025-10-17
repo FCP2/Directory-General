@@ -3,7 +3,7 @@
 <head>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <meta charset="utf-8" />
-  <title>Directorio — Municipios EdoMéx</title>
+  <title>Directorio SGG — Municipios EdoMéx</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <nav class="navbar navbar-expand-lg" style="background-color: #ffffff;">
     <div class="container">
@@ -224,6 +224,53 @@
   --bs-btn-focus-shadow-rgb:159,34,65;
   border-radius: .5rem; /* opcional */
 }
+.party-chips-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+}
+
+.party-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  line-height: 1;
+  border: 1px solid rgba(0,0,0,.08);
+  background: #fff;
+  cursor: pointer;
+  user-select: none;
+  transition: transform .05s ease, box-shadow .15s ease, opacity .2s;
+}
+.party-chip:hover { transform: translateY(-1px); }
+.party-chip:active { transform: translateY(0); }
+
+.party-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid rgba(0,0,0,.15);
+  flex: 0 0 14px;
+}
+
+.party-chip.is-active {
+  box-shadow: 0 0 0 2px rgba(0,0,0,.06) inset;
+  background: #f9fafb;
+}
+
+.party-chip.is-disabled {
+  opacity: .45;
+  pointer-events: none;
+}
+
+.party-chip .lbl {
+  white-space: nowrap;
+  max-width: 120px;     /* evita que se corten */
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
   </style>
 </head>
 <body class="bg-light pb-5">
@@ -279,7 +326,18 @@
             </div>
 
             <hr class="my-3">
-
+            <!-- Filtro por Partido (chips) -->
+            <div id="partyChipsBlock" class="mt-3">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="mb-0">Partidos</h6>
+                <button id="btnPartyClear" class="btn btn-sm btn-outline-secondary">Limpiar</button>
+              </div>
+              <div id="partyChips" class="party-chips-wrap">
+                <!-- chips se inyectan por JS -->
+              </div>
+              <div class="form-text" id="partyHint">Selecciona un chip para filtrar.</div>
+            </div>
+            <hr class="my-3">
             <div>
               <h6 class="mb-2">Municipio seleccionado</h6>
               <div id="munInfo" class="small text-muted">—</div>
@@ -400,6 +458,9 @@ let _suspendEvents = false;
 let filterMode = 'general'; // 'general' | 'coord'
 let municipioColorMap = Object.create(null); // key municipio norm -> '#rrggbb'
 let currentCoord = null;     // string o null
+let currentParty = null;                    // 'morena', 'pri', 'pvem', etc.
+const municipioPartyMap = new Map();        // municipio (normalize) -> partyKey
+let partyKeysAvailable = new Set();         // partidos presentes en la hoja actual
 
 
 // ========== Selectores UI (ajusta IDs si usas otros) ==========
@@ -1056,68 +1117,72 @@ function updateButtonState() {
 }
 function attachUI() {
   selHoja.addEventListener('change', async () => {
-    if (_suspendEvents) return;
+      if (_suspendEvents) return;
 
     currentTab = selHoja.value || null;
+    await buildPartyIndexForTab(currentTab);  // índice municipio->partido y set de keys
+    currentParty = null;                      // reset filtro
+    renderPartyChips();                       // pinta chips disponibles
+    refreshBasePolygonStyles();               // reaplica estilos
 
     if (filterMode === 'coord') {
-      // Municipios = intersección (Coordinación ∩ Hoja)
-      updateMunicipiosForCurrentCoordAndTab(selCoordinacion.value, currentTab);
-
-      // ✅ Ahora sí, habilita Municipio
-      selMunicipio.disabled = false;
-
-      // Mantén el patrón de color por coordinación
-      if (selCoordinacion.selectedIndex > 0) colorByCoordFromIndex(selCoordinacion.value);
-    }
-
-    updateButtonState();
-    setTimeout(updateButtonState, 0);
-
-    // (opcional) resetear municipio y limpiar UI al cambiar de hoja
-    if (selMunicipio) {
-      selMunicipio.selectedIndex = 0;
-      currentMunicipio = null;
-      munInfo && (munInfo.textContent = "—");
-      dataInfo && (dataInfo.innerHTML = "Selecciona un municipio.");
-      map?.closePopup && map.closePopup();
-      polygons.forEach(p => refreshBasePolygonStyles());
-    }
-
-    // 👉 Cargar TODA la hoja y dibujar gráfica global
-    if (currentTab) {
-      let rows = dataCache.get(currentTab);
-      if (!rows) {
-        const r = await fetch(ENDPOINT_DATA(currentTab));
-        const j = await r.json();
-        rows = j?.rows || [];
-        dataCache.set(currentTab, rows);
-      }
-      if (typeof renderPartyChart === 'function') {
-        renderPartyChart(rows);
-      }
-      // o si usas la genérica:
-      // renderSummaryChart?.(rows);
-    } else {
-      // sin hoja -> oculta gráfica de partidos si la tienes
-      if (typeof setPartyBoxVisible === 'function') setPartyBoxVisible(false);
-    }
-
-    if (_suspendEvents) return;
-      currentTab = selHoja.value || null;
-      updateLegend?.();
-      updateButtonState();
-
-      if (filterMode === 'coord') {
-        // Refina municipios a (Coordinación ∩ Hoja)
+        // Municipios = intersección (Coordinación ∩ Hoja)
         updateMunicipiosForCurrentCoordAndTab(selCoordinacion.value, currentTab);
 
-        // (opcional) pinta gráfica global de la hoja
-        if (currentTab && typeof renderPartyChart === 'function') {
-          const rows = await getRowsForTab(currentTab);
+        // ✅ Ahora sí, habilita Municipio
+        selMunicipio.disabled = false;
+
+        // Mantén el patrón de color por coordinación
+        if (selCoordinacion.selectedIndex > 0) colorByCoordFromIndex(selCoordinacion.value);
+      }
+
+      updateButtonState();
+      setTimeout(updateButtonState, 0);
+
+      // (opcional) resetear municipio y limpiar UI al cambiar de hoja
+      if (selMunicipio) {
+        selMunicipio.selectedIndex = 0;
+        currentMunicipio = null;
+        munInfo && (munInfo.textContent = "—");
+        dataInfo && (dataInfo.innerHTML = "Selecciona un municipio.");
+        map?.closePopup && map.closePopup();
+        polygons.forEach(p => refreshBasePolygonStyles());
+      }
+
+      // 👉 Cargar TODA la hoja y dibujar gráfica global
+      if (currentTab) {
+        let rows = dataCache.get(currentTab);
+        if (!rows) {
+          const r = await fetch(ENDPOINT_DATA(currentTab));
+          const j = await r.json();
+          rows = j?.rows || [];
+          dataCache.set(currentTab, rows);
+        }
+        if (typeof renderPartyChart === 'function') {
           renderPartyChart(rows);
         }
+        // o si usas la genérica:
+        // renderSummaryChart?.(rows);
+      } else {
+        // sin hoja -> oculta gráfica de partidos si la tienes
+        if (typeof setPartyBoxVisible === 'function') setPartyBoxVisible(false);
       }
+
+      if (_suspendEvents) return;
+        currentTab = selHoja.value || null;
+        updateLegend?.();
+        updateButtonState();
+
+        if (filterMode === 'coord') {
+          // Refina municipios a (Coordinación ∩ Hoja)
+          updateMunicipiosForCurrentCoordAndTab(selCoordinacion.value, currentTab);
+
+          // (opcional) pinta gráfica global de la hoja
+          if (currentTab && typeof renderPartyChart === 'function') {
+            const rows = await getRowsForTab(currentTab);
+            renderPartyChart(rows);
+          }
+        }
     });
   selCoordinacion.addEventListener('change', () => {
     if (_suspendEvents || filterMode !== 'coord') return;
@@ -1161,6 +1226,7 @@ function attachUI() {
     filterMode = 'general';
     updateUIForMode();
   });
+
 async function onSwitchToGeneralMode() {
   filterMode = 'general';
   _suspendEvents = true;
@@ -1256,6 +1322,68 @@ async function onSwitchToGeneralMode() {
   const rows = await getRowsForTab(hoja);
   const fil  = rows.filter(r => normalize(r[MUNICIPIO_KEY_SHEET]) === normalize(municipio));
     openInfoModal(hoja, municipio, fil);
+  });
+  // Delegación de eventos para chips
+  document.getElementById('partyChips')?.addEventListener('click', async (e) => {
+    const chip = e.target.closest('.party-chip');
+    if (!chip) return;
+
+    const pKey = chip.dataset.party || '';
+    const tab  = selHoja.value;             // hoja seleccionada
+    if (!tab) return;                       // requiere una hoja activa
+
+    // alterna selección (si clic en el mismo → deselecciona)
+    currentParty = (currentParty === pKey) ? null : pKey || null;
+
+    // Reaplica estilos (atenúa por partido)
+    refreshBasePolygonStyles();
+
+    // Centra a municipios del partido (si hay selección)
+    if (currentParty) {
+      const bounds = [];
+      Object.keys(polygonByMunicipio).forEach(mkey => {
+        if (municipioPartyMap.get(mkey) === currentParty) {
+          const lyr = polygonByMunicipio[mkey];
+          if (lyr?.getBounds) bounds.push(lyr.getBounds());
+        }
+      });
+      if (bounds.length) {
+        let union = L.latLngBounds(bounds[0]);
+        for (let i=1;i<bounds.length;i++) union.extend(bounds[i]);
+        map.fitBounds(union, { padding:[24,24] });
+      }
+    }
+
+    // Tabla: filtra filas por partido o muestra todas si no hay selección
+    const rows = await getRowsForTab(tab);
+    const col  = getPartyColumn(rows);
+    const filtered = (currentParty && col)
+      ? rows.filter(r => partyKeyFrom(r[col] || '') === currentParty)
+      : rows;
+
+    renderDataTable(filtered, tab);
+
+    // Gráfica: puedes usar la de toda la hoja (coherente para “composición total”)
+    renderPartyChart?.(rows);
+    // Si quisieras que la gráfica respete el filtro:
+    // renderPartyChart?.(filtered);
+
+    // Re-render chips para estado activo
+    renderPartyChips();
+  });
+
+  // Botón Limpiar (quitar filtro de partido)
+  document.getElementById('btnPartyClear')?.addEventListener('click', async () => {
+    currentParty = null;
+    refreshBasePolygonStyles();
+    renderPartyChips();
+
+    // Si quieres devolver la tabla a la hoja completa:
+    if (selHoja.value) {
+      const rows = await getRowsForTab(selHoja.value);
+      renderDataTable(rows, selHoja.value);
+      renderPartyChart?.(rows);
+    }
   });
 }
 /*FUNCION PARA ABRIR EL MODAL*/
@@ -1513,6 +1641,22 @@ async function getRowsForTab(tab) {
   }
   return rows;
 }
+async function buildPartyIndexForTab(tabName) {
+  municipioPartyMap.clear();
+  partyKeysAvailable = new Set();
+
+  const rows = await getRowsForTab(tabName);
+  const col = getPartyColumn(rows);
+  if (!col) return; // la hoja no tiene columna de partido
+
+  rows.forEach(r => {
+    const muni = normalize(r[MUNICIPIO_KEY_SHEET]);
+    const key  = partyKeyFrom(r[col] || '');
+    if (!muni || !key) return;
+    municipioPartyMap.set(muni, key);
+    partyKeysAvailable.add(key);
+  });
+}
 async function applyFilters() {
   // Sincroniza estado desde los selects
   currentTab        = selHoja.value || currentTab || null;
@@ -1628,6 +1772,34 @@ async function buildMunicipioColorMapFromPresidentes() {
   });
 
   console.debug('[colors] municipios con color:', Object.keys(municipioColorMap).length);
+}
+//Render dinámico de chips
+function renderPartyChips() {
+  const wrap = document.getElementById('partyChips');
+  const hint = document.getElementById('partyHint');
+  if (!wrap) return;
+
+  // Construye chips: primero "Todos"
+  const keys = Array.from(partyKeysAvailable).sort();
+  const all = [{ key: '', label: 'Todos', color: '#9CA3AF' }];
+
+  const items = all.concat(
+    keys.map(k => ({ key: k, label: k.toUpperCase(), color: partyColor(k) }))
+  );
+
+  wrap.innerHTML = items.map(it => `
+    <button class="party-chip ${currentParty === it.key ? 'is-active' : ''}"
+            data-party="${it.key}">
+      <span class="party-swatch" style="background:${it.color}"></span>
+      <span class="lbl">${it.label}</span>
+    </button>
+  `).join('');
+
+  if (hint) {
+    hint.textContent = currentParty
+      ? `Filtrando por: ${currentParty.toUpperCase()}`
+      : 'Selecciona un chip para filtrar.';
+  }
 }
 
 function resetAll() {
@@ -2039,7 +2211,7 @@ document.addEventListener('click', (e) => {
     <nav class="navbar fixed-bottom" style="background-color: #9f2241; color: #ffffff;">
       <div class="container justify-content-center">
         <span class="navbar-text small" style="color: #ffffff;">
-          Información oficial: Coordinación de Politícas Transversales de Gobernabilidad ©ATI 2025
+          Información oficial: Coordinación de Politícas Transversales y de Gobernabilidad ©ATI 2025
         </span>
       </div>
     </nav>
