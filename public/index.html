@@ -461,6 +461,8 @@ let currentCoord = null;     // string o null
 let currentParty = null;                    // 'morena', 'pri', 'pvem', etc.
 const municipioPartyMap = new Map();        // municipio (normalize) -> partyKey
 let partyKeysAvailable = new Set();         // partidos presentes en la hoja actual
+// Overlay de resaltado por partido (contornos encima de los polígonos)
+let partyHighlightGroup = null; // L.FeatureGroup con outlines
 
 
 // ========== Selectores UI (ajusta IDs si usas otros) ==========
@@ -533,9 +535,9 @@ function dimBasemap(on = true) {
 }
 
 // Opacidades estándar
-const FILL_OPACITY_DEFAULT = 0.80;  // normal
-const FILL_OPACITY_DIMMED  = 0.18;  // atenuado (no seleccionado)
-const FILL_OPACITY_FOCUS   = 0.72;  // enfocado/seleccionado
+const FILL_OPACITY_DEFAULT = 0.90;  // normal
+const FILL_OPACITY_DIMMED  = 0.20;  // atenuado (no seleccionado)
+const FILL_OPACITY_FOCUS   = 0.78;  // enfocado/seleccionado
 
 function baseFillColorFor(feature){
   const nom = feature?.properties?.municipio || '';
@@ -547,7 +549,7 @@ function polyDefaultStyle(feature) {
   return {
     color: '#ffffff',               // borde neutro
     weight: 1,
-    opacity: 0.9,
+    opacity: 0.5,
     fillColor: baseFillColorFor(feature),
     fillOpacity: FILL_OPACITY_DEFAULT
   };
@@ -1115,6 +1117,59 @@ function updateButtonState() {
     btnAplicar.disabled = !(hasCoord && hasTab); // <- Municipio opcional
   }
 }
+//Utilidad para (re)crear el overlay
+function ensurePartyHighlightGroup() {
+  if (partyHighlightGroup) return partyHighlightGroup;
+  partyHighlightGroup = L.featureGroup([], { interactive: false });
+  partyHighlightGroup.addTo(map);
+  return partyHighlightGroup;
+}
+
+function clearPartyHighlight() {
+  if (partyHighlightGroup) {
+    partyHighlightGroup.clearLayers();
+  }
+}
+function updatePartyHighlight(pKey) {
+  ensurePartyHighlightGroup();
+  clearPartyHighlight();
+  if (!pKey) return; // sin partido → no hay contornos
+
+  // Recorre todos los municipios y, si pertenecen al partido, agrega outline
+  Object.entries(polygonByMunicipio).forEach(([keyNorm, lyr]) => {
+    const pk = municipioPartyMap.get(keyNorm);
+    if (pk !== pKey || !lyr) return;
+
+    // 1) Versión simple: un contorno sutil
+    const gj = lyr.toGeoJSON();
+    const outline = L.geoJSON(gj, {
+      interactive: false,
+      style: {
+        color: '#00D1FF',     // azul suave (cámbialo si quieres)
+        weight: 3,            // grosor
+        opacity: 0.9,
+        fillOpacity: 0        // sin relleno
+      }
+    });
+
+    // 2) (Opcional) Halo: un trazo ancho semitransparente debajo + el fino encima
+    const halo = L.geoJSON(gj, {
+      interactive: false,
+      style: {
+        color: '#ffffff',
+        weight: 8,
+        opacity: 0.18,
+        fillOpacity: 0
+      }
+    });
+
+    halo.addTo(partyHighlightGroup);
+    outline.addTo(partyHighlightGroup);
+  });
+
+  // Trae el overlay al frente para que se vea claro
+  partyHighlightGroup.bringToFront?.();
+}
 function attachUI() {
   selHoja.addEventListener('change', async () => {
       if (_suspendEvents) return;
@@ -1124,6 +1179,7 @@ function attachUI() {
     currentParty = null;                      // reset filtro
     renderPartyChips();                       // pinta chips disponibles
     refreshBasePolygonStyles();               // reaplica estilos
+    updatePartyHighlight?.(null); // limpiar halo
 
     if (filterMode === 'coord') {
         // Municipios = intersección (Coordinación ∩ Hoja)
@@ -1301,6 +1357,7 @@ async function onSwitchToGeneralMode() {
     // fuerza sincronización desde el DOM antes de aplicar
     currentTab = selHoja.value || null;
     currentMunicipio = selMunicipio.value || null;
+    clearPartyHighlight?.();
     applyFilters();
   });
 
@@ -1309,6 +1366,7 @@ async function onSwitchToGeneralMode() {
     e.stopPropagation();
     resetAll();
     refreshBasePolygonStyles();
+    clearPartyHighlight?.();
   });
   /*MODAL ABRIR MODAL Y PINTAR*/
   document.addEventListener('click', async (e) => {
@@ -1329,16 +1387,20 @@ async function onSwitchToGeneralMode() {
     if (!chip) return;
 
     const pKey = chip.dataset.party || '';
-    const tab  = selHoja.value;             // hoja seleccionada
-    if (!tab) return;                       // requiere una hoja activa
+    const tab  = selHoja.value;
+    if (!tab) return;
 
-    // alterna selección (si clic en el mismo → deselecciona)
-    currentParty = (currentParty === pKey) ? null : pKey || null;
+    // 1) alterna selección
+    currentParty = (currentParty === pKey) ? null : (pKey || null);
 
-    // Reaplica estilos (atenúa por partido)
+    // 2) atenuado por partido
     refreshBasePolygonStyles();
 
-    // Centra a municipios del partido (si hay selección)
+    // 3) halo de resaltado (opcional)
+    updatePartyHighlight?.(currentParty);            // usa partyColor(currentParty) si quieres
+    // updatePartyHighlightColor?.(partyColor(currentParty)); // si hiciste variante con color
+
+    // 4) centrar
     if (currentParty) {
       const bounds = [];
       Object.keys(polygonByMunicipio).forEach(mkey => {
@@ -1349,12 +1411,12 @@ async function onSwitchToGeneralMode() {
       });
       if (bounds.length) {
         let union = L.latLngBounds(bounds[0]);
-        for (let i=1;i<bounds.length;i++) union.extend(bounds[i]);
-        map.fitBounds(union, { padding:[24,24] });
+        for (let i = 1; i < bounds.length; i++) union.extend(bounds[i]);
+        map.fitBounds(union, { padding: [24, 24] });
       }
     }
 
-    // Tabla: filtra filas por partido o muestra todas si no hay selección
+    // 5) tabla (usa toda la hoja o filtrada, tú decides)
     const rows = await getRowsForTab(tab);
     const col  = getPartyColumn(rows);
     const filtered = (currentParty && col)
@@ -1362,13 +1424,9 @@ async function onSwitchToGeneralMode() {
       : rows;
 
     renderDataTable(filtered, tab);
+    renderPartyChart?.(rows);               // o renderPartyChart(filtered);
 
-    // Gráfica: puedes usar la de toda la hoja (coherente para “composición total”)
-    renderPartyChart?.(rows);
-    // Si quisieras que la gráfica respete el filtro:
-    // renderPartyChart?.(filtered);
-
-    // Re-render chips para estado activo
+    // 6) chips activos
     renderPartyChips();
   });
 
@@ -1377,7 +1435,7 @@ async function onSwitchToGeneralMode() {
     currentParty = null;
     refreshBasePolygonStyles();
     renderPartyChips();
-
+    clearPartyHighlight?.();
     // Si quieres devolver la tabla a la hoja completa:
     if (selHoja.value) {
       const rows = await getRowsForTab(selHoja.value);
