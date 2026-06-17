@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <meta charset="utf-8" />
+  <title>Directorio SGG — Municipios EdoMéx</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- Bootstrap -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- WKT → GeoJSON (Terraformer WKT) -->
+  <script src="https://unpkg.com/@terraformer/wkt@2.1.1/dist/terraformer-wkt-parser.umd.min.js"></script>
+  <link rel="stylesheet" href="/main.css">
+</head>
+<body class="bg-light pb-5">
+  <div id="alertHost" class="app-alert-host" aria-live="polite" aria-atomic="true"></div>
+  <header class="app-header">
+    <div class="container-fluid app-header-inner">
+      <a class="app-brand" href="#">
+        <img src="https://lh3.googleusercontent.com/d/15DZbMCYDoQMblhjfIznTahYvBFZlGFnP"
+             alt="Directorio SGG">
+      </a>
+      <div class="app-header-copy">
+        <div class="app-header-kicker">Sistema de agenda politica</div>
+        <h1>Directorio territorial</h1>
+      </div>
+      <div class="app-header-status">
+        <span class="status-dot"></span>
+        Información en consulta
+      </div>
+    </div>
+  </header>
+  <div class="container-fluid py-3">
+    <div class="row g-3">
+      <!-- Columna de filtros -->
+      <div class="col-12 col-lg-3">
+        <div class="card shadow-sm sidebar-card filter-panel">
+          <div class="filter-panel-head">
+            <div>
+              <div class="filter-kicker">Agenda politica</div>
+              <h5 class="filter-title">Panel de consulta</h5>
+            </div>
+            <span class="filter-seal"><i class="bi bi-shield-check"></i></span>
+          </div>
+          <div class="card-body">
+            <div class="filter-section" id="modeRadios">
+              <label class="filter-label">Modo de filtrado</label>
+              <div class="btn-group filter-mode" role="group" aria-label="Modo de filtrado">
+                <input type="radio" class="btn-check" name="mode" id="modeGeneral" autocomplete="off" checked>
+                <label class="btn btn-outline-primary" for="modeGeneral"><i class="bi bi-grid-3x3-gap"></i> General</label>
+
+                <input type="radio" class="btn-check" name="mode" id="modeCoord" autocomplete="off">
+                <label class="btn btn-outline-primary" for="modeCoord"><i class="bi bi-diagram-3"></i> Coordinación</label>
+              </div>
+            </div>
+
+            <div id="blockCoordinacion" class="filter-field d-none">
+              <label class="filter-label"><i class="bi bi-diagram-3"></i> Coordinación</label>
+              <select id="selCoordinacion" class="form-select filter-select" disabled>
+                <option value="" selected disabled>Selecciona una coordinación…</option>
+              </select>
+              <div class="filter-help">Primero elige la coordinación politica.</div>
+            </div>
+
+            <div id="blockHoja" class="filter-field">
+              <label class="filter-label"><i class="bi bi-layers"></i> Capa de información <span class="optional-tag coord-only">Opcional</span></label>
+              <select id="selHoja" class="form-select filter-select">
+                <option value="" selected disabled>Selecciona una hoja…</option>
+              </select>
+              <div class="d-grid mt-2">
+                <button id="btnReporte" class="btn btn-report" disabled><i class="bi bi-file-earmark-bar-graph"></i> Generar reporte</button>
+              </div>
+            </div>
+
+            <div id="blockMunicipio" class="filter-field">
+              <label class="filter-label"><i class="bi bi-geo-alt"></i> Municipio <span class="optional-tag coord-only">Opcional</span></label>
+              <select id="selMunicipio" class="form-select filter-select" disabled>
+                <option value="" selected disabled>Selecciona un municipio…</option>
+              </select>
+            </div>
+
+            <div class="filter-actions">
+              <button id="btnAplicar" class="btn btn-ati"><i class="bi bi-funnel"></i> Aplicar</button>
+              <button id="btnLimpiar" class="btn btn-outline-gold"><i class="bi bi-arrow-counterclockwise"></i> Limpiar</button>
+            </div>
+
+            <hr class="filter-divider">
+
+            <div id="partyChipsBlock" class="filter-section">
+              <div class="filter-section-head">
+                <h6><i class="bi bi-award"></i> Partidos</h6>
+                <button id="btnPartyClear" class="btn btn-sm btn-link-gold">Limpiar</button>
+              </div>
+              <div id="partyChips" class="party-chips-wrap">
+                <!-- chips se inyectan por JS -->
+              </div>
+              <div class="filter-help" id="partyHint">Selecciona un chip para filtrar.</div>
+            </div>
+
+            <hr class="filter-divider">
+
+            <div class="filter-summary">
+              <h6><i class="bi bi-pin-map"></i> Municipio seleccionado</h6>
+              <div id="munInfo" class="small text-muted">-</div>
+            </div>
+
+            <hr class="filter-divider">
+
+            <div id="partyChartBox" class="filter-chart d-none">
+              <h6><i class="bi bi-pie-chart"></i> Distribucion por partido</h6>
+              <canvas id="partyChart" height="160"></canvas>
+              <div id="partyChartHint" class="filter-help"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Columna del mapa -->
+      <div class="col-12 col-lg-9">
+        <div class="card shadow-sm">
+          <div class="card-body">
+            <!-- Wrapper relativo para posicionar la overlay dentro del mapa -->
+            <div id="mapWrap" class="position-relative">
+              <div id="map"></div>
+              <div id="mapPartyLegend" class="map-overlay party-dock-wrap">
+                <div class="overlay-inner party-dock-panel shadow-sm">
+                  <div class="overlay-head party-dock-head">
+                    <strong><i class="bi bi-award"></i> Partidos</strong>
+                    <button id="legendToggle" class="btn btn-sm btn-light py-0 px-2" aria-expanded="true" aria-controls="legendContent">-</button>
+                  </div>
+                  <div id="legendContent" class="overlay-content party-dock-content">
+                    <button class="party-dock-btn is-clear" type="button" data-party="" title="Todos" aria-label="Todos los partidos">
+                      <i class="bi bi-asterisk"></i>
+                    </button>
+                    <button class="party-dock-btn" type="button" data-party="morena" title="Morena" aria-label="Morena">
+                      <img src="/assets/partidos/morena.png" alt="Morena">
+                    </button>
+                    <button class="party-dock-btn" type="button" data-party="pt" title="PT" aria-label="PT">
+                      <img src="/assets/partidos/pt.png" alt="PT">
+                    </button>
+                    <button class="party-dock-btn" type="button" data-party="pvem" title="Partido Verde" aria-label="Partido Verde">
+                      <img src="/assets/partidos/pvem.png" alt="Partido Verde">
+                    </button>
+                    <button class="party-dock-btn" type="button" data-party="pri" title="PRI" aria-label="PRI">
+                      <img src="/assets/partidos/pri.png" alt="PRI">
+                    </button>
+                    <button class="party-dock-btn" type="button" data-party="pan" title="PAN" aria-label="PAN">
+                      <img src="/assets/partidos/pan.png" alt="PAN">
+                    </button>
+                    <button class="party-dock-btn" type="button" data-party="prd" title="PRD" aria-label="PRD">
+                      <img src="/assets/partidos/prd.png" alt="PRD">
+                    </button>
+                    <button class="party-dock-btn" type="button" data-party="mc" title="Movimiento Ciudadano" aria-label="Movimiento Ciudadano">
+                      <img src="/assets/partidos/mc.png" alt="Movimiento Ciudadano">
+                    </button>
+                    <button class="party-dock-btn" type="button" data-party="naem" title="Nueva Alianza" aria-label="Nueva Alianza">
+                      <img src="/assets/partidos/na.png" alt="Nueva Alianza">
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bootstrap JS (opcional para algunos componentes) -->
+   <script src="https://unpkg.com/wellknown@0.5.0/wellknown.js"></script>
+<!-- Panel detalle -->
+<aside class="offcanvas offcanvas-end detail-panel" tabindex="-1" id="detailPanel" aria-labelledby="detailPanelTitle">
+  <div class="offcanvas-header detail-panel-header">
+    <div>
+      <div class="detail-panel-eyebrow">Ficha de registro</div>
+      <h5 id="infoModalTitle" class="offcanvas-title">Detalle</h5>
+    </div>
+    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Cerrar"></button>
+  </div>
+  <div id="infoModalBody" class="offcanvas-body detail-panel-body"><!-- contenido por JS --></div>
+</aside>
+    <footer class="navbar fixed-bottom app-footer">
+      <div class="container-fluid app-footer-inner">
+        <div class="app-footer-main">
+          <i class="bi bi-building-check"></i>
+          <span>Coordinación de Políticas Transversales y de Gobernabilidad</span>
+        </div>
+        <div class="app-footer-meta">
+          <span><i class="bi bi-database-check"></i> Información oficial</span>
+          <span class="footer-divider"></span>
+          <span>ATI 2025</span>
+        </div>
+      </div>
+    </footer>
+    <!-- Bootstrap JS al final del body -->
+  <script src="/index.js"></script>
+</body>
+</html>
