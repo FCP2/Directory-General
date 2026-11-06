@@ -72,6 +72,7 @@ export function createApiController({ staticPath }) {
       }
       res.sendFile(file);
     },
+<<<<<<< HEAD
 
     async getPhoto(req, res) {
       const id = String(req.params.id || "");
@@ -99,6 +100,8 @@ export function createApiController({ staticPath }) {
         return res.status(502).json({ error: "No se pudo obtener la foto" });
       }
     },
+=======
+>>>>>>> origin/main
   };
 }
 
