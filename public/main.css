@@ -1,9 +1,6 @@
 :root { --footer-h: 64px; }
-<<<<<<< HEAD
 body, button, input, select, textarea { font-family: 'Montserrat', system-ui, sans-serif; font-weight: 400; }
 .map-filter-dock, .map-filter-dock * { font-weight: 400 !important; }
-=======
->>>>>>> origin/main
     body { padding-bottom: var(--footer-h); } /* para que el footer fijo no tape el contenido */
     /* No pongas height fija aquí: #dataInfo la recibe por JS dinámicamente */
     html { height: 100%; }
@@ -276,7 +273,6 @@ body, button, input, select, textarea { font-family: 'Montserrat', system-ui, sa
 #mapWrap { position: relative; }
 #map { height: 80vh; min-height: 500px; border-radius: 0.75rem; }
 
-<<<<<<< HEAD
 .map-category-dock {
   position: absolute;
   z-index: 1200;
@@ -298,8 +294,6 @@ body, button, input, select, textarea { font-family: 'Montserrat', system-ui, sa
   #mapPartyLegend.party-dock-wrap { right: 8px; }
 }
 
-=======
->>>>>>> origin/main
 /* Overlay flotante dentro del mapa */
 .map-overlay{
   position: absolute;
@@ -414,7 +408,6 @@ body, button, input, select, textarea { font-family: 'Montserrat', system-ui, sa
 .party-chip:hover { transform: translateY(-1px); }
 .party-chip:active { transform: translateY(0); }
 
-<<<<<<< HEAD
 /* Categorías: barra horizontal táctil con indicador guinda deslizante */
 .category-select-fallback {
   position: absolute !important;
@@ -490,8 +483,6 @@ body, button, input, select, textarea { font-family: 'Montserrat', system-ui, sa
 }
 .category-pill-indicator.is-visible { opacity: 1; }
 
-=======
->>>>>>> origin/main
 .party-swatch {
   width: 14px;
   height: 14px;

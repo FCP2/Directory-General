@@ -5,12 +5,9 @@
   <meta charset="utf-8" />
   <title>Directorio SGG — Municipios EdoMéx</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-<<<<<<< HEAD
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600&display=swap" rel="stylesheet">
-=======
->>>>>>> origin/main
   <!-- Bootstrap -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
@@ -21,17 +18,11 @@
   <!-- WKT → GeoJSON (Terraformer WKT) -->
   <script src="https://unpkg.com/@terraformer/wkt@2.1.1/dist/terraformer-wkt-parser.umd.min.js"></script>
   <link rel="stylesheet" href="/main.css">
-<<<<<<< HEAD
   <link rel="stylesheet" href="/react-dist/app.css?v=20261106-10">
 </head>
 <body class="bg-light pb-5">
   <div id="alertHost" class="app-alert-host" aria-live="polite" aria-atomic="true"></div>
   <div id="municipalityModalRoot"></div>
-=======
-</head>
-<body class="bg-light pb-5">
-  <div id="alertHost" class="app-alert-host" aria-live="polite" aria-atomic="true"></div>
->>>>>>> origin/main
   <header class="app-header">
     <div class="container-fluid app-header-inner">
       <a class="app-brand" href="#">
@@ -51,53 +42,32 @@
   <div class="container-fluid py-3">
     <div class="row g-3">
       <!-- Columna de filtros -->
-<<<<<<< HEAD
       <div id="filterColumn" class="d-none">
-=======
-      <div class="col-12 col-lg-3">
->>>>>>> origin/main
         <div class="card shadow-sm sidebar-card filter-panel">
           <div class="filter-panel-head">
             <div>
               <div class="filter-kicker">Agenda politica</div>
               <h5 class="filter-title">Panel de consulta</h5>
             </div>
-<<<<<<< HEAD
             <span class="filter-seal" title="Controles de consulta" aria-hidden="true"><i class="bi bi-sliders2-vertical"></i></span>
             <button id="filterToggle" type="button" class="filter-toggle" aria-expanded="true" aria-controls="filterPanelBody" title="Contraer filtros">
               <i class="bi bi-chevron-up" aria-hidden="true"></i><span class="visually-hidden">Contraer filtros</span>
             </button>
           </div>
           <div id="filterPanelBody" class="card-body">
-=======
-            <span class="filter-seal"><i class="bi bi-shield-check"></i></span>
-          </div>
-          <div class="card-body">
->>>>>>> origin/main
             <div class="filter-section" id="modeRadios">
               <label class="filter-label">Modo de filtrado</label>
               <div class="btn-group filter-mode" role="group" aria-label="Modo de filtrado">
                 <input type="radio" class="btn-check" name="mode" id="modeGeneral" autocomplete="off" checked>
-<<<<<<< HEAD
                 <label class="btn btn-outline-primary" for="modeGeneral"><i class="bi bi-map"></i> General</label>
 
                 <input type="radio" class="btn-check" name="mode" id="modeCoord" autocomplete="off">
                 <label class="btn btn-outline-primary" for="modeCoord"><i class="bi bi-bezier2"></i> Coordinación</label>
-=======
-                <label class="btn btn-outline-primary" for="modeGeneral"><i class="bi bi-grid-3x3-gap"></i> General</label>
-
-                <input type="radio" class="btn-check" name="mode" id="modeCoord" autocomplete="off">
-                <label class="btn btn-outline-primary" for="modeCoord"><i class="bi bi-diagram-3"></i> Coordinación</label>
->>>>>>> origin/main
               </div>
             </div>
 
             <div id="blockCoordinacion" class="filter-field d-none">
-<<<<<<< HEAD
               <label class="filter-label"><i class="bi bi-buildings"></i> Coordinación</label>
-=======
-              <label class="filter-label"><i class="bi bi-diagram-3"></i> Coordinación</label>
->>>>>>> origin/main
               <select id="selCoordinacion" class="form-select filter-select" disabled>
                 <option value="" selected disabled>Selecciona una coordinación…</option>
               </select>
@@ -105,13 +75,8 @@
             </div>
 
             <div id="blockHoja" class="filter-field">
-<<<<<<< HEAD
               <label class="filter-label"><i class="bi bi-stack"></i> Capa de información <span class="optional-tag coord-only">Opcional</span></label>
               <select id="selHoja" class="form-select filter-select category-select-fallback">
-=======
-              <label class="filter-label"><i class="bi bi-layers"></i> Capa de información <span class="optional-tag coord-only">Opcional</span></label>
-              <select id="selHoja" class="form-select filter-select">
->>>>>>> origin/main
                 <option value="" selected disabled>Selecciona una hoja…</option>
               </select>
               <div class="d-grid mt-2">
@@ -120,75 +85,30 @@
             </div>
 
             <div id="blockMunicipio" class="filter-field">
-<<<<<<< HEAD
               <label class="filter-label"><i class="bi bi-geo-alt-fill"></i> Municipio <span class="optional-tag coord-only">Opcional</span></label>
-=======
-              <label class="filter-label"><i class="bi bi-geo-alt"></i> Municipio <span class="optional-tag coord-only">Opcional</span></label>
->>>>>>> origin/main
               <select id="selMunicipio" class="form-select filter-select" disabled>
                 <option value="" selected disabled>Selecciona un municipio…</option>
               </select>
             </div>
 
             <div class="filter-actions">
-<<<<<<< HEAD
               <button id="btnAplicar" class="btn btn-ati"><i class="bi bi-check2-circle"></i> Aplicar</button>
               <button id="btnLimpiar" class="btn btn-outline-gold"><i class="bi bi-eraser"></i> Limpiar</button>
             </div>
 
-=======
-              <button id="btnAplicar" class="btn btn-ati"><i class="bi bi-funnel"></i> Aplicar</button>
-              <button id="btnLimpiar" class="btn btn-outline-gold"><i class="bi bi-arrow-counterclockwise"></i> Limpiar</button>
-            </div>
-
-            <hr class="filter-divider">
-
-            <div id="partyChipsBlock" class="filter-section">
-              <div class="filter-section-head">
-                <h6><i class="bi bi-award"></i> Partidos</h6>
-                <button id="btnPartyClear" class="btn btn-sm btn-link-gold">Limpiar</button>
-              </div>
-              <div id="partyChips" class="party-chips-wrap">
-                <!-- chips se inyectan por JS -->
-              </div>
-              <div class="filter-help" id="partyHint">Selecciona un chip para filtrar.</div>
-            </div>
-
-            <hr class="filter-divider">
-
-            <div class="filter-summary">
-              <h6><i class="bi bi-pin-map"></i> Municipio seleccionado</h6>
-              <div id="munInfo" class="small text-muted">-</div>
-            </div>
-
-            <hr class="filter-divider">
-
-            <div id="partyChartBox" class="filter-chart d-none">
-              <h6><i class="bi bi-pie-chart"></i> Distribucion por partido</h6>
-              <canvas id="partyChart" height="160"></canvas>
-              <div id="partyChartHint" class="filter-help"></div>
-            </div>
->>>>>>> origin/main
           </div>
         </div>
       </div>
       <!-- Columna del mapa -->
-<<<<<<< HEAD
       <div class="col-12">
-=======
-      <div class="col-12 col-lg-9">
->>>>>>> origin/main
         <div class="card shadow-sm">
           <div class="card-body">
             <!-- Wrapper relativo para posicionar la overlay dentro del mapa -->
             <div id="mapWrap" class="position-relative">
               <div id="map"></div>
-<<<<<<< HEAD
               <div id="filterDock" class="map-filter-dock"></div>
               <div id="kpiMapRoot" class="map-kpi-dock"></div>
               <div id="partyPillsRoot" class="map-party-pills-dock"></div>
-=======
->>>>>>> origin/main
               <div id="mapPartyLegend" class="map-overlay party-dock-wrap">
                 <div class="overlay-inner party-dock-panel shadow-sm">
                   <div class="overlay-head party-dock-head">
@@ -260,11 +180,7 @@
       </div>
     </footer>
     <!-- Bootstrap JS al final del body -->
-<<<<<<< HEAD
   <script src="/index.js?v=20261106-12"></script>
   <script type="module" src="/react-dist/app.js?v=20261106-10"></script>
-=======
-  <script src="/index.js"></script>
->>>>>>> origin/main
 </body>
 </html>

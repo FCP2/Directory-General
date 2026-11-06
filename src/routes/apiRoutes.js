@@ -10,10 +10,7 @@ export function createApiRouter(deps) {
   router.get("/api/data/:tab", controller.getSheetData);
   router.get("/api/data-all", controller.getAllSheetData);
   router.get("/api/municipios", controller.getMunicipios);
-<<<<<<< HEAD
   router.get("/api/photo/:id", controller.getPhoto);
-=======
->>>>>>> origin/main
 
   return router;
 }
