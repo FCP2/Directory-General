@@ -1,0 +1,258 @@
+.react-category-pills {
+  position: relative;
+  display: flex;
+  gap: .55rem;
+  width: 100%;
+  padding: .35rem .4rem .55rem;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  touch-action: pan-x;
+}
+.react-category-pills::-webkit-scrollbar { display: none; }
+.react-category-pill {
+  position: relative;
+  z-index: 1;
+  flex: 0 0 auto;
+  min-height: 42px;
+  padding: .65rem 1rem;
+  border: 1px solid rgba(255,255,255,.32);
+  border-radius: 999px;
+  background: rgba(255,255,255,.94);
+  color: #3f3540;
+  cursor: pointer;
+  font: inherit;
+  font-size: .82rem;
+  font-weight: 750;
+  line-height: 1;
+  white-space: nowrap;
+  box-shadow: 0 5px 14px rgba(15, 23, 42, .13);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.react-category-pill:hover { transform: translateY(-2px); box-shadow: 0 8px 18px rgba(15, 23, 42, .18); }
+.react-category-pill:active { transform: scale(.98); }
+.react-category-pill:focus-visible { outline: 3px solid rgba(255,255,255,.9); outline-offset: 2px; }
+.react-category-pill:disabled { opacity: .5; cursor: not-allowed; }
+.react-category-pill.is-active { color: #fff; border-color: transparent; background: transparent; box-shadow: none; }
+.react-category-pill-indicator {
+  position: absolute;
+  z-index: 0;
+  top: .35rem;
+  left: .4rem;
+  height: 42px;
+  border-radius: 999px;
+  background: #9f2241;
+  box-shadow: 0 8px 18px rgba(159,34,65,.35);
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.react-category-pill-indicator.is-visible { opacity: 1; }
+
+.map-filter-dock {
+  position: absolute;
+  z-index: 1300;
+  top: 16px;
+  left: 16px;
+  width: min(360px, calc(100% - 32px));
+  pointer-events: none;
+}
+.map-filter-dock .filter-panel {
+  width: 100%;
+  max-height: calc(80vh - 32px);
+  overflow: hidden auto;
+  pointer-events: auto;
+  background: rgba(255,255,255,.96);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 14px 34px rgba(15,23,42,.2);
+}
+.map-filter-dock .filter-panel.is-collapsed { width: max-content; overflow: visible; }
+.map-filter-dock .filter-panel.is-collapsed .card-body { display: none; }
+.map-filter-dock .filter-panel-head { display: flex; align-items: center; gap: .5rem; }
+.map-filter-dock .filter-panel-head > div { flex: 1; min-width: 0; }
+.filter-toggle {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(159,34,65,.16);
+  border-radius: 50%;
+  background: #fff;
+  color: #9f2241;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.filter-toggle:hover { transform: translateY(-1px); box-shadow: 0 5px 12px rgba(159,34,65,.18); }
+
+.react-modal-backdrop {
+  position: fixed;
+  z-index: 3000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(15,23,42,.52);
+  backdrop-filter: blur(5px);
+}
+.react-municipality-modal {
+  position: relative;
+  width: min(620px, 100%);
+  max-height: min(720px, 90vh);
+  overflow: auto;
+  padding: 2rem;
+  border: 1px solid rgba(255,255,255,.7);
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: 0 24px 70px rgba(15,23,42,.3);
+}
+.react-modal-close {
+  position: absolute;
+  top: .8rem;
+  right: .9rem;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: #f8edf0;
+  color: #9f2241;
+  font-size: 1.5rem;
+  line-height: 1;
+}
+.react-modal-eyebrow { margin: 0 0 .35rem; color: #9f2241; font-size: .75rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.react-municipality-modal h2 { margin: 0; color: #2f2430; font-size: clamp(1.45rem, 4vw, 2rem); }
+.react-modal-copy { margin: .55rem 0 1.25rem; color: #64748b; }
+.react-modal-categories { display: flex; flex-wrap: wrap; gap: .7rem; }
+.react-modal-pill {
+  padding: .75rem 1rem;
+  border: 1px solid #eadfce;
+  border-radius: 999px;
+  background: #fffaf2;
+  color: #4b2635;
+  font: inherit;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 0 3px 9px rgba(15,23,42,.07);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.react-modal-pill:hover { transform: translateY(-2px); border-color: #9f2241; background: #9f2241; color: #fff; box-shadow: 0 8px 16px rgba(159,34,65,.2); }
+.react-modal-pill:active { transform: scale(.98); }
+.react-modal-pill:focus-visible { outline: 3px solid rgba(159,34,65,.25); outline-offset: 2px; }
+.react-lazy-modal { padding: 0; overflow: hidden; display:flex; flex-direction:column; max-height:min(720px,90vh); }
+.react-modal-municipality-banner { padding: 1.5rem 2rem; background: #9f2241; color: #fff; }
+.react-modal-municipality-banner p { margin: 0 0 .3rem; color: rgba(255,255,255,.76); font-size: .7rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.react-modal-municipality-banner h2 { margin: 0; color: #fff; font-size: clamp(1.45rem, 4vw, 2rem); }
+.react-lazy-modal > .react-modal-copy, .react-lazy-modal > .react-modal-categories, .react-lazy-results { margin-right: 2rem; margin-left: 2rem; }
+.react-lazy-modal > .react-modal-copy { margin-top: 1.35rem; }
+.react-lazy-modal > .react-modal-categories { margin-bottom: 2rem; }
+.react-lazy-results { padding-bottom: 2rem; overflow-y:auto; min-height:0; flex:1; }
+.react-results-toolbar { display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:1.25rem 0 1rem; border-bottom:1px solid #eee3d5; }
+.react-results-toolbar span { display:block; color:#9f2241; font-size:.68rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
+.react-results-toolbar strong { display:block; margin-top:.2rem; color:#2f2430; }
+.react-back-categories { flex:0 0 auto; padding:.5rem .7rem; border:1px solid #eadfce; border-radius:999px; background:#fffaf2; color:#9f2241; font:inherit; font-size:.72rem; font-weight:700; cursor:pointer; }
+.react-loading-state,.react-empty-state,.react-error-state { display:flex; align-items:center; justify-content:center; gap:.6rem; min-height:150px; color:#64748b; text-align:center; }
+.react-error-state { color:#b42318; }
+.react-spinner { width:22px; height:22px; border:3px solid #eadfce; border-top-color:#9f2241; border-radius:50%; animation:react-spin .8s linear infinite; }
+@keyframes react-spin { to { transform:rotate(360deg); } }
+.react-record-card { margin-top:1rem; overflow:hidden; border:1px solid #eee3d5; border-radius:16px; background:#fff; box-shadow:0 7px 18px rgba(15,23,42,.07); }
+.react-record-card > header { padding:.75rem 1rem; background:#9f2241; color:#fff; font-size:.8rem; font-weight:800; letter-spacing:.04em; }
+.react-credential-body { display:grid; gap:1rem; padding:.8rem 1rem; align-items:start; }
+.react-credential-body.has-photo { grid-template-columns:116px minmax(0,1fr); }
+.react-credential-body.no-photo { display:block; }
+.react-credential-photo { width:116px; height:140px; overflow:hidden; border:1px solid #eadfce; border-radius:12px; background:#f8fafc; }
+.react-credential-photo img { width:100%; height:100%; object-fit:cover; display:block; }
+.react-credential-photo-placeholder { display:grid; place-items:center; width:100%; height:100%; color:#bc955b; font-size:2.4rem; background:#fffaf2; }
+.react-record-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:0 1rem; padding:.35rem 0; }
+.react-record-field { padding:.7rem 0; border-bottom:1px solid #f0ebe5; min-width:0; }
+.react-record-field:nth-last-child(-n+2) { border-bottom:0; }
+.react-record-field span { display:flex; align-items:center; gap:.35rem; margin-bottom:.25rem; color:#64748b; font-size:.68rem; font-weight:800; letter-spacing:.04em; text-transform:uppercase; }
+.react-record-field span i { display:inline-grid; place-items:center; flex:0 0 24px; width:24px; height:24px; border:1px solid rgba(159,34,65,.12); border-radius:7px; color:#9f2241; background:#fff7f8; font-size:.78rem; }
+.react-record-field p { margin:0; color:#2f2430; font-size:.9rem; line-height:1.55; overflow-wrap:anywhere; }
+.react-social-link { display:inline-flex; align-items:center; gap:.4rem; color:#9f2241; text-decoration:none; transition:color .2s ease, transform .2s ease; }
+.react-social-link:hover { color:#6f1a31; text-decoration:underline; transform:translateX(1px); }
+.react-social-link i { font-size:1rem; }
+
+@media (max-width: 576px) {
+  .map-filter-dock { top: 8px; left: 8px; width: min(320px, calc(100% - 16px)); }
+  .map-filter-dock .filter-panel { max-height: 70vh; }
+  .react-municipality-modal { padding: 1.5rem; border-radius: 20px; }
+  .react-lazy-modal { padding: 0; }
+  .react-modal-pill { flex: 1 1 auto; text-align: center; }
+  .react-modal-municipality-banner { padding:1.25rem 1.5rem; }
+  .react-lazy-modal > .react-modal-copy, .react-lazy-modal > .react-modal-categories, .react-lazy-results { margin-right:1.5rem; margin-left:1.5rem; }
+  .react-results-toolbar { align-items:flex-start; flex-direction:column; }
+  .react-record-grid { grid-template-columns:1fr; }
+  .react-credential-body { grid-template-columns:1fr; }
+  .react-credential-photo { width:132px; height:156px; }
+  .react-record-field:nth-last-child(-n+2) { border-bottom:1px solid #f0ebe5; }
+  .react-record-field:last-child { border-bottom:0; }
+}
+
+.map-kpi-dock {
+  position: absolute;
+  z-index: 1250;
+  top: 16px;
+  right: 16px;
+  width: min(390px, calc(100% - 410px));
+  pointer-events: none;
+}
+.react-map-kpis {
+  padding: 1rem;
+  border: 1px solid rgba(188,149,92,.35);
+  border-radius: 18px;
+  background: rgba(255,255,255,.94);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 14px 32px rgba(15,23,42,.18);
+  color: #2f2430;
+}
+.react-kpi-heading { display:flex; align-items:center; justify-content:space-between; gap:.75rem; margin-bottom:.75rem; }
+.react-kpi-heading span { display:block; color:#9f2241; font-size:.68rem; font-weight:800; letter-spacing:.1em; text-transform:uppercase; }
+.react-kpi-heading strong { display:block; max-width:280px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:.95rem; }
+.react-kpi-heading > i { color:#9f2241; font-size:1.3rem; }
+.react-kpi-cards { display:grid; grid-template-columns:repeat(3,1fr); gap:.5rem; }
+.react-kpi-cards article { padding:.6rem; border:1px solid #eee3d5; border-radius:12px; background:#fffaf2; }
+.react-kpi-cards small { display:block; color:#64748b; font-size:.68rem; }
+.react-kpi-cards strong { display:block; margin-top:.15rem; color:#9f2241; font-size:1.35rem; }
+.react-kpi-donut-row { display:flex; align-items:center; gap:1rem; margin-top:.8rem; }
+.react-kpi-donut { display:grid; flex:0 0 92px; width:92px; height:92px; place-content:center; border-radius:50%; background:var(--donut); text-align:center; }
+.react-kpi-donut::after { content:""; position:absolute; width:62px; height:62px; border-radius:50%; background:#fff; }
+.react-kpi-donut { position:relative; }
+.react-kpi-donut b,.react-kpi-donut small { position:relative; z-index:1; }
+.react-kpi-donut b { font-size:1.15rem; }
+.react-kpi-donut small { font-size:.55rem; color:#64748b; }
+.react-kpi-legend { display:grid; gap:.25rem; min-width:0; font-size:.7rem; }
+.react-kpi-legend span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.react-kpi-legend i { display:inline-block; width:8px; height:8px; margin-right:.3rem; border-radius:50%; }
+.react-kpi-rings { display:flex; justify-content:space-around; gap:.65rem; margin-top:.9rem; padding-top:.85rem; border-top:1px solid #eee3d5; }
+.react-kpi-ring-wrap { display:grid; justify-items:center; gap:.35rem; color:#64748b; font-size:.68rem; }
+.react-kpi-ring { position:relative; display:grid; place-items:center; width:64px; height:64px; border-radius:50%; background:conic-gradient(var(--ring-color) var(--ring-progress), #eee7df 0deg); }
+.react-kpi-ring::after { content:""; position:absolute; inset:7px; border-radius:50%; background:#fff; }
+.react-kpi-ring b { position:relative; z-index:1; color:#2f2430; font-size:1rem; }
+
+.map-party-pills-dock {
+  position:absolute;
+  z-index:1400;
+  right:16px;
+  bottom:16px;
+  left:16px;
+  pointer-events:auto;
+}
+.react-party-pills { display:flex; align-items:center; gap:.6rem; padding:.55rem; border:1px solid rgba(188,149,92,.4); border-radius:18px; background:rgba(255,255,255,.94); backdrop-filter:blur(14px); box-shadow:0 14px 30px rgba(15,23,42,.18); }
+.react-party-title { flex:0 0 auto; color:#9f2241; font-size:.76rem; font-weight:800; }
+.react-party-scroll { display:flex; gap:.45rem; min-width:0; overflow-x:auto; scrollbar-width:none; -webkit-overflow-scrolling:touch; touch-action:pan-x; }
+.react-party-scroll::-webkit-scrollbar { display:none; }
+.react-party-pill { display:inline-flex; align-items:center; gap:.4rem; flex:0 0 auto; min-height:38px; padding:.5rem .8rem; border:1px solid #eadfce; border-radius:999px; background:#fff; color:#4b2635; font:inherit; font-size:.75rem; font-weight:750; white-space:nowrap; cursor:pointer; box-shadow:0 4px 10px rgba(15,23,42,.08); transition:all .3s cubic-bezier(.4,0,.2,1); }
+.react-party-pill img { width:22px; height:22px; object-fit:contain; }
+.react-party-pill:hover { transform:translateY(-2px); box-shadow:0 8px 16px rgba(15,23,42,.15); }
+.react-party-pill:active { transform:scale(.98); }
+.react-party-pill.is-active { border-color:#9f2241; background:#9f2241; color:#fff; }
+.react-map-kpis, .react-map-kpis *, .react-party-pills, .react-party-pills * { font-family:'Montserrat',system-ui,sans-serif; font-weight:400 !important; }
+#mapPartyLegend { display:none !important; }
+
+@media (max-width: 700px) {
+  .map-kpi-dock { top:8px; right:8px; width:calc(100% - 16px); }
+  .map-kpi-dock .react-map-kpis { max-width:340px; margin-left:auto; }
+  .map-party-pills-dock { right:8px; bottom:8px; left:8px; }
+  .react-party-pills { display:block; padding:.5rem; }
+  .react-party-title { display:block; margin:0 0 .4rem .25rem; }
+}
